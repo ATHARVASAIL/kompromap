@@ -1,0 +1,28 @@
+# Production image: no --reload (dev-only, watches for file changes and
+# reloads the whole worker on every request under load), runs pending
+# Alembic migrations before the server starts, and exposes a healthcheck
+# hitting the same /api/health the app itself already provides.
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+RUN chmod +x docker-entrypoint.prod.sh
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
+ENTRYPOINT ["./docker-entrypoint.prod.sh"]

@@ -19,12 +19,27 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS — kept as a plain string field rather than list[str]. pydantic-
+    # settings JSON-decodes list-typed fields at the env-extraction layer
+    # (before any field_validator runs), which means a plain
+    # CORS_ORIGINS=https://a.com,https://b.com env var — the natural way to
+    # set this in a .env file or docker-compose `environment:` block —
+    # would hard-fail with a JSONDecodeError. Parsing it ourselves in
+    # cors_origin_list below avoids that footgun.
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     # Optional: Anthropic API key for Phase 5 narrative generation
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        stripped = self.cors_origins.strip()
+        if stripped.startswith("["):
+            import json
+
+            return json.loads(stripped)
+        return [origin.strip() for origin in stripped.split(",") if origin.strip()]
 
     @property
     def database_url(self) -> str:

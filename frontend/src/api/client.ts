@@ -17,6 +17,13 @@ import type {
   SnapshotSummary,
 } from "../types/graph";
 
+// Base URL for the API. Empty string (default) assumes the frontend and
+// backend share an origin — true for the docker-compose setup and for any
+// reverse-proxy deployment that serves both under one domain. Set
+// VITE_API_BASE_URL at build time if the frontend is hosted separately
+// from the backend (e.g. a static host + a separately hosted API).
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText;
@@ -39,15 +46,15 @@ export function fetchGraph(filters: GraphFilters = {}): Promise<GraphResponse> {
   if (filters.min_cvss !== undefined) params.set("min_cvss", String(filters.min_cvss));
 
   const qs = params.toString();
-  return fetch(`/api/graph${qs ? `?${qs}` : ""}`).then((r) => handle<GraphResponse>(r));
+  return fetch(`${API_BASE}/api/graph${qs ? `?${qs}` : ""}`).then((r) => handle<GraphResponse>(r));
 }
 
 export function fetchNode(id: string): Promise<NodeDetail> {
-  return fetch(`/api/nodes/${id}`).then((r) => handle<NodeDetail>(r));
+  return fetch(`${API_BASE}/api/nodes/${id}`).then((r) => handle<NodeDetail>(r));
 }
 
 export function createNode(payload: Record<string, unknown>): Promise<NodeDetail> {
-  return fetch("/api/nodes", {
+  return fetch(`${API_BASE}/api/nodes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -55,7 +62,7 @@ export function createNode(payload: Record<string, unknown>): Promise<NodeDetail
 }
 
 export function updateNode(id: string, payload: Record<string, unknown>): Promise<NodeDetail> {
-  return fetch(`/api/nodes/${id}`, {
+  return fetch(`${API_BASE}/api/nodes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -63,7 +70,7 @@ export function updateNode(id: string, payload: Record<string, unknown>): Promis
 }
 
 export function deleteNode(id: string): Promise<void> {
-  return fetch(`/api/nodes/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
+  return fetch(`${API_BASE}/api/nodes/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
 }
 
 export function createEdge(payload: {
@@ -72,7 +79,7 @@ export function createEdge(payload: {
   edge_type: EdgeType;
   weight?: number;
 }): Promise<EdgeDetail> {
-  return fetch("/api/edges", {
+  return fetch(`${API_BASE}/api/edges`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -80,28 +87,28 @@ export function createEdge(payload: {
 }
 
 export function deleteEdge(id: string): Promise<void> {
-  return fetch(`/api/edges/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
+  return fetch(`${API_BASE}/api/edges/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
 }
 
 export function listNodesByType(nodeType: NodeType): Promise<NodeDetail[]> {
-  return fetch(`/api/nodes?node_type=${nodeType}`).then((r) => handle<NodeDetail[]>(r));
+  return fetch(`${API_BASE}/api/nodes?node_type=${nodeType}`).then((r) => handle<NodeDetail[]>(r));
 }
 
 export function ingestFile(tool: "nmap" | "nuclei" | "amass" | "burp", file: File, engagementId?: string) {
   const form = new FormData();
   form.append("file", file);
   if (engagementId) form.append("engagement_id", engagementId);
-  return fetch(`/api/ingest/${tool}`, { method: "POST", body: form }).then((r) => handle(r));
+  return fetch(`${API_BASE}/api/ingest/${tool}`, { method: "POST", body: form }).then((r) => handle(r));
 }
 
 // --- Engagements -------------------------------------------------------
 
 export function listEngagements(): Promise<Engagement[]> {
-  return fetch("/api/engagements").then((r) => handle<Engagement[]>(r));
+  return fetch(`${API_BASE}/api/engagements`).then((r) => handle<Engagement[]>(r));
 }
 
 export function getActiveEngagement(): Promise<Engagement> {
-  return fetch("/api/engagements/active").then((r) => handle<Engagement>(r));
+  return fetch(`${API_BASE}/api/engagements/active`).then((r) => handle<Engagement>(r));
 }
 
 export function createEngagement(
@@ -109,7 +116,7 @@ export function createEngagement(
   clientName?: string,
   activate = true,
 ): Promise<Engagement> {
-  return fetch("/api/engagements", {
+  return fetch(`${API_BASE}/api/engagements`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, client_name: clientName ?? null, activate }),
@@ -117,21 +124,21 @@ export function createEngagement(
 }
 
 export function activateEngagement(id: string): Promise<Engagement> {
-  return fetch(`/api/engagements/${id}/activate`, { method: "POST" }).then((r) => handle<Engagement>(r));
+  return fetch(`${API_BASE}/api/engagements/${id}/activate`, { method: "POST" }).then((r) => handle<Engagement>(r));
 }
 
 export function deleteEngagement(id: string): Promise<void> {
-  return fetch(`/api/engagements/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
+  return fetch(`${API_BASE}/api/engagements/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
 }
 
 export function getDashboard(engagementId: string): Promise<DashboardData> {
-  return fetch(`/api/engagements/${engagementId}/dashboard`).then((r) => handle<DashboardData>(r));
+  return fetch(`${API_BASE}/api/engagements/${engagementId}/dashboard`).then((r) => handle<DashboardData>(r));
 }
 
 // --- Snapshots -----------------------------------------------------------
 
 export function createSnapshot(engagementId: string, label: string): Promise<SnapshotSummary> {
-  return fetch(`/api/engagements/${engagementId}/snapshots`, {
+  return fetch(`${API_BASE}/api/engagements/${engagementId}/snapshots`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ label }),
@@ -139,24 +146,24 @@ export function createSnapshot(engagementId: string, label: string): Promise<Sna
 }
 
 export function listSnapshots(engagementId: string): Promise<SnapshotSummary[]> {
-  return fetch(`/api/engagements/${engagementId}/snapshots`).then((r) => handle<SnapshotSummary[]>(r));
+  return fetch(`${API_BASE}/api/engagements/${engagementId}/snapshots`).then((r) => handle<SnapshotSummary[]>(r));
 }
 
 export function getSnapshot(id: string): Promise<SnapshotDetail> {
-  return fetch(`/api/snapshots/${id}`).then((r) => handle<SnapshotDetail>(r));
+  return fetch(`${API_BASE}/api/snapshots/${id}`).then((r) => handle<SnapshotDetail>(r));
 }
 
 export function diffSnapshot(id: string, compareTo?: string): Promise<GraphDiff> {
   const qs = compareTo ? `?compare_to=${compareTo}` : "";
-  return fetch(`/api/snapshots/${id}/diff${qs}`).then((r) => handle<GraphDiff>(r));
+  return fetch(`${API_BASE}/api/snapshots/${id}/diff${qs}`).then((r) => handle<GraphDiff>(r));
 }
 
 export function deleteSnapshot(id: string): Promise<void> {
-  return fetch(`/api/snapshots/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
+  return fetch(`${API_BASE}/api/snapshots/${id}`, { method: "DELETE" }).then((r) => handle<void>(r));
 }
 
 export function findBestPaths(weights?: Partial<ScoringWeights>): Promise<PathfindBestResponse> {
-  return fetch("/api/pathfind/best", {
+  return fetch(`${API_BASE}/api/pathfind/best`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(weights ? { weights } : {}),
@@ -167,7 +174,7 @@ export function findPathsFromEntryPoint(
   entryPointId: string,
   weights?: Partial<ScoringWeights>,
 ): Promise<PathfindFromResponse> {
-  return fetch(`/api/pathfind/from/${entryPointId}`, {
+  return fetch(`${API_BASE}/api/pathfind/from/${entryPointId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(weights ? { weights } : {}),
@@ -175,7 +182,7 @@ export function findPathsFromEntryPoint(
 }
 
 export function generateNarrative(nodeIds: string[]): Promise<NarrativeResponse> {
-  return fetch("/api/reports/narrative", {
+  return fetch(`${API_BASE}/api/reports/narrative`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ node_ids: nodeIds }),
@@ -187,7 +194,7 @@ export function exportChain(
   format: "markdown" | "json",
   narrative?: string,
 ): Promise<ExportResponse> {
-  return fetch("/api/reports/export", {
+  return fetch(`${API_BASE}/api/reports/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ node_ids: nodeIds, format, ...(narrative ? { narrative } : {}) }),
