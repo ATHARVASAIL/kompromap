@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<OWASPZAPReport version="2.14.0" generated="Wed, 15 Jul 2026 10:00:00">
+  <site name="https://dev.client.com" host="dev.client.com" port="443" ssl="true">
+    <alerts>
+      <alertitem>
+        <pluginid>40012</pluginid>
+        <alert>Cross Site Scripting (Reflected)</alert>
+        <name>Cross Site Scripting (Reflected)</name>
+        <riskcode>3</riskcode>
+        <confidence>2</confidence>
+        <cweid>79</cweid>
+        <instances>
+          <instance>
+            <uri>https://dev.client.com/search?q=test</uri>
+            <method>GET</method>
+          </instance>
+        </instances>
+      </alertitem>
+      <alertitem>
+        <pluginid>10202</pluginid>
+        <alert>Absence of Anti-CSRF Tokens</alert>
+        <name>Absence of Anti-CSRF Tokens</name>
+        <riskcode>2</riskcode>
+        <confidence>2</confidence>
+        <cweid>352</cweid>
+        <instances>
+          <instance>
+            <uri>https://dev.client.com/account/settings</uri>
+            <method>POST</method>
+          </instance>
+        </instances>
+      </alertitem>
+      <alertitem>
+        <pluginid>10021</pluginid>
+        <alert>X-Content-Type-Options Header Missing</alert>
+        <name>X-Content-Type-Options Header Missing</name>
+        <riskcode>1</riskcode>
+        <confidence>3</confidence>
+        <cweid>-1</cweid>
+        <instances>
+          <instance>
+            <uri>https://dev.client.com/</uri>
+            <method>GET</method>
+          </instance>
+        </instances>
+      </alertitem>
+    </alerts>
+  </site>
+</OWASPZAPReport>

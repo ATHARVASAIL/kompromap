@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------
+   Design tokens — single source of truth for color as CSS custom
+   properties (RGB triples, per Tailwind's recommended pattern, so utility
+   classes like bg-surface-1/50 keep working with opacity modifiers).
+
+   These are mirrored as hex constants in src/styles/tokens.ts for the
+   handful of places that need a raw color string instead of a Tailwind
+   class — mainly Cytoscape.js, which takes its own style objects and has
+   no notion of Tailwind at all. Keep the two in sync if you touch either.
+
+   Dark is the only theme for now (see UI modernization brief: light theme
+   was explicitly "optional if not extra effort" — skipped so the graph
+   visualization pass, the actual centerpiece, gets the time instead).
+   --------------------------------------------------------------------- */
+:root {
+  --surface-0: 10 13 18;
+  --surface-1: 15 19 27;
+  --surface-2: 21 26 36;
+  --surface-3: 28 34 46;
+
+  --border-subtle: 35 42 56;
+  --border-default: 46 54 72;
+  --border-strong: 59 68 89;
+
+  --text-primary: 231 234 240;
+  --text-secondary: 144 153 172;
+  --text-tertiary: 92 100 120;
+  --text-disabled: 62 71 89;
+
+  /* The one deliberate accent — primary actions, focus rings, links.
+     Never used for severity; severity has its own scale below. */
+  --accent: 45 212 232;
+  --accent-hover: 92 225 240;
+
+  /* Critical -> High -> Medium -> Low -> Info. Deliberately red -> orange
+     -> amber -> blue -> gray rather than the more common red -> green:
+     red/green confusion is the most frequent form of color vision
+     deficiency, so the low-severity end uses blue instead of green and
+     every step differs in lightness/saturation too, not hue alone. */
+  --severity-critical: 242 69 78;
+  --severity-high: 245 136 58;
+  --severity-medium: 240 201 58;
+  --severity-low: 76 141 240;
+  --severity-info: 107 116 136;
+}
+
+@layer base {
+  body {
+    @apply bg-surface-0 text-text-primary antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  button:not(:disabled) {
+    transition: transform 100ms ease, color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-text-primary;
+  }
+
+  /* Visible keyboard focus everywhere — not just on inputs. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-surface-0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-0;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-surface-3;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-border-strong;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

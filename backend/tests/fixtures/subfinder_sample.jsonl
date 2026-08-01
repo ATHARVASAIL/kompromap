@@ -1,0 +1,3 @@
+{"host": "dev.client.com", "input": "client.com", "source": "crtsh"}
+{"host": "mail.client.com", "input": "client.com", "source": "virustotal"}
+{"host": "dev.client.com", "input": "client.com", "source": "certspotter"}

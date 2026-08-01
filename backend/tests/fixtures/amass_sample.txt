@@ -1,0 +1,5 @@
+dev.client.com
+staging.client.com
+api.client.com
+client.com
+dev.client.com
