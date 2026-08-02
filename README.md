@@ -1,30 +1,50 @@
 <div align="center">
 
-<br>
+<img src="https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&weight=700&size=38&pause=100000&color=2DD4E8&center=true&vCenter=true&repeat=false&width=460&height=58&lines=KOMPROMAP" alt="Kompromap" />
 
-<img src="https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&weight=600&size=34&pause=100000&color=2DD4E8&center=true&vCenter=true&repeat=false&width=440&height=52&lines=KOMPROMAP" alt="Kompromap" />
-
-<p><em>Stop reading flat CVSS tables.<br/>Start seeing the attack chain.</em></p>
-
-<br>
-
-<img src="https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&size=15&pause=1400&color=9099AC&center=true&vCenter=true&width=760&height=40&lines=%5Bsubdomain+takeover%5D+%E2%86%92+%5Bstored+XSS%5D+%E2%86%92+%5Bsession+theft%5D+%E2%86%92+%5BIDOR%5D+%E2%86%92+%5B40%2C000+PII+records%5D;none+of+those+are+critical+alone.+chained%2C+they're+a+full+compromise.;kompromap+finds+that+chain+for+you+%E2%80%94+and+ranks+it+by+how+easy+it+is." alt="Attack chain example" />
-
-<br><br>
+**Stop reading flat CVSS tables. Start seeing the attack chain.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/OWNER/kompromap/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0F131B&color=2DD4E8)](https://github.com/OWNER/kompromap/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT-2DD4E8?style=for-the-badge&labelColor=0F131B)](./LICENSE)
 [![Tests](https://img.shields.io/badge/tests-278_passing-4C8DF0?style=for-the-badge&labelColor=0F131B)](#testing)
+[![License](https://img.shields.io/badge/license-MIT-2DD4E8?style=for-the-badge&labelColor=0F131B)](./LICENSE)
 
-<br>
+<img src="https://skillicons.dev/icons?i=python,fastapi,postgres,react,ts,tailwind,docker,githubactions&theme=dark" alt="Tech stack" height="42" />
 
-<img src="https://skillicons.dev/icons?i=python,fastapi,postgres,react,ts,tailwind,docker,githubactions&theme=dark" alt="Tech stack" />
+<sub>⚠️ <b>Before pushing:</b> replace <code>OWNER</code> in the CI badge URL with your GitHub username, or it 404s.</sub>
 
-<br><br>
+</div>
 
-<sub><b>⚠️ Before pushing:</b> replace <code>OWNER</code> in the CI badge URL with your GitHub username, or it will 404.</sub>
+---
 
-<br>
+<div align="center">
+
+### A finding is a dot. An attack is a line through them.
+
+</div>
+
+```mermaid
+flowchart LR
+    A["🌐 dev.acme-fin.com<br/><small>entry point</small>"]
+    B["⚠️ Subdomain takeover<br/><small>CVSS 8.1</small>"]
+    C["🔑 Admin session<br/><small>stolen cookie</small>"]
+    D["⚠️ IDOR on /api/v2/users<br/><small>CVSS 7.5</small>"]
+    E["🗄️ customer_pii_db<br/><small>284,000 records</small>"]
+
+    A -->|has finding| B
+    B -->|yields| C
+    C -->|grants access| D
+    D -->|yields| E
+
+    style A fill:#0F131B,stroke:#2DD4E8,stroke-width:2px,color:#E7EAF0
+    style B fill:#0F131B,stroke:#F5883A,stroke-width:2px,color:#E7EAF0
+    style C fill:#0F131B,stroke:#FB7185,stroke-width:2px,color:#E7EAF0
+    style D fill:#0F131B,stroke:#F5883A,stroke-width:2px,color:#E7EAF0
+    style E fill:#0F131B,stroke:#F2454E,stroke-width:3px,color:#E7EAF0
+```
+
+<div align="center">
+
+<sub>None of those findings is critical alone. Chained, they are a full compromise.<br/>Kompromap assembles that chain automatically — and ranks it by how <em>easy</em> it is.</sub>
 
 </div>
 
@@ -56,6 +76,7 @@ Existing graph tools (BloodHound and friends) map identity and permission graphs
 - [Multi-engagement design](#multi-engagement-design)
 - [Reporting & narrative generation](#reporting--narrative-generation)
 - [Testing](#testing)
+- [Security](#security)
 - [Frontend architecture](#frontend-architecture)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
@@ -129,6 +150,12 @@ docker compose up --build
 
 The frontend dev server proxies `/api/*` to the backend, so there's no CORS
 configuration needed for local dev.
+
+> [!TIP]
+> Want data to explore straight away? The `sample-data/` bundle ships a
+> fictional engagement (47 subdomains, 25 services, 44 findings across every
+> severity band) plus a script that wires up the exploitation chains — so
+> Path Analysis has real answers to give you within a couple of minutes.
 
 ## Manual setup
 
@@ -308,6 +335,11 @@ it means CI needs no database service.
 
 ## Security
 
+> [!IMPORTANT]
+> **Set `API_KEY` before deploying anywhere reachable off your own machine.**
+> Without it every endpoint is open, and this data is a map of a client's
+> vulnerabilities.
+
 - **Optional API-key auth.** Unset `API_KEY` = no auth, which is fine on
   localhost and preserves the original single-user workflow. Set it and
   every `/api` route except the health checks requires an `X-API-Key`
@@ -409,7 +441,7 @@ something else.
 ---
 
 <div align="center">
-<br>
+
 <sub>Kompromap turns scan output into the one thing a pentest report is really trying to say:<br/><b>here is the path, and here is how easy it was.</b></sub>
-<br><br>
+
 </div>
