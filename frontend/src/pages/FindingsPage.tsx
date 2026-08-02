@@ -184,7 +184,7 @@ export default function FindingsPage({ onViewInGraph }: FindingsPageProps) {
         )}
         {rows && rows.length > 0 && (
           <table className="w-full border-collapse font-mono text-xs">
-            <thead className="sticky top-0 bg-surface-1 text-text-tertiary">
+            <thead className="sticky top-0 z-10 bg-surface-1 text-text-tertiary shadow-[0_1px_0_0_rgb(var(--border-subtle))]">
               <tr>
                 <SortableHeader label="Severity" active={sortKey === "severity"} dir={sortDir} onClick={() => toggleSort("severity")} />
                 <SortableHeader label="Title" active={sortKey === "title"} dir={sortDir} onClick={() => toggleSort("title")} />
@@ -200,7 +200,7 @@ export default function FindingsPage({ onViewInGraph }: FindingsPageProps) {
                   key={row.id}
                   onClick={() => onViewInGraph(row.id)}
                   style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}
-                  className="animate-fade-in cursor-pointer border-t border-border-subtle hover:bg-surface-2"
+                  className="group animate-fade-in cursor-pointer border-t border-border-subtle transition-colors duration-150 hover:bg-surface-2"
                 >
                   <td className={dense ? "px-3 py-1" : "px-3 py-2"}>
                     <SeverityBadge severity={row.severity} />

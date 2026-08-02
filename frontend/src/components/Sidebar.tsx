@@ -73,6 +73,11 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
   },
 ];
 
+// The sliding indicator is absolutely positioned, so it needs to know the
+// item geometry rather than inferring it from the DOM.
+const ITEM_HEIGHT = 36;
+const ITEM_GAP = 2;
+
 export default function Sidebar({
   active,
   onSelect,
@@ -82,6 +87,8 @@ export default function Sidebar({
   edgeCount,
   onShowShortcuts,
 }: SidebarProps) {
+  const activeIndex = ITEMS.findIndex((i) => i.id === active);
+
   return (
     <aside className="flex h-full w-52 flex-col border-r border-border bg-surface-1">
       <div className="border-b border-border px-3 py-3">
@@ -97,21 +104,43 @@ export default function Sidebar({
         <EngagementSwitcher active={engagement} onChanged={onEngagementChanged} />
       </div>
 
-      <nav className="flex-1 space-y-0.5 p-2 font-mono text-xs">
-        {ITEMS.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onSelect(item.id)}
-            className={`flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left transition-colors ${
-              active === item.id
-                ? "bg-accent/10 text-accent"
-                : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-            }`}
-          >
-            <span className={active === item.id ? "text-accent" : "text-text-tertiary"}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+      <nav className="relative flex-1 p-2 font-mono text-xs">
+        {/* Sliding indicator — one element that moves, rather than each
+            item toggling its own background. Reads as a single continuous
+            object tracking your position instead of a blink. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-2 right-2 rounded bg-accent/10 ring-1 ring-inset ring-accent/25 transition-transform duration-300 ease-snap"
+          style={{
+            height: ITEM_HEIGHT,
+            transform: `translateY(${activeIndex * (ITEM_HEIGHT + ITEM_GAP)}px)`,
+            opacity: activeIndex < 0 ? 0 : 1,
+          }}
+        />
+        <div className="relative" style={{ display: "grid", gap: ITEM_GAP }}>
+          {ITEMS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => onSelect(item.id)}
+              aria-current={active === item.id ? "page" : undefined}
+              style={{ height: ITEM_HEIGHT }}
+              className={`group flex w-full items-center gap-2.5 rounded px-2.5 text-left transition-colors duration-200 ${
+                active === item.id
+                  ? "text-accent"
+                  : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+              }`}
+            >
+              <span
+                className={`transition-transform duration-200 ease-snap group-hover:scale-110 ${
+                  active === item.id ? "text-accent" : "text-text-tertiary"
+                }`}
+              >
+                {item.icon}
+              </span>
+              {item.label}
+            </button>
+          ))}
+        </div>
       </nav>
 
       <div className="flex items-center justify-between border-t border-border px-3 py-2.5 font-mono text-[11px] text-text-tertiary">

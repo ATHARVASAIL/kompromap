@@ -79,14 +79,15 @@ class AssetRead(NodeReadCommon):
 
 class ServiceCreate(NodeCommon):
     node_type: Literal[NodeType.SERVICE] = NodeType.SERVICE
-    port: int
+    # TCP/UDP ports are 1-65535; out-of-range values are always bad data.
+    port: int = Field(ge=1, le=65535)
     protocol: str
     banner: str | None = None
     tech_stack: list[str] = Field(default_factory=list)
 
 
 class ServiceUpdate(BaseModel):
-    port: int | None = None
+    port: int | None = Field(default=None, ge=1, le=65535)
     protocol: str | None = None
     banner: str | None = None
     tech_stack: list[str] | None = None
@@ -247,7 +248,10 @@ class FindingCreate(NodeCommon):
     title: str
     cwe: str | None = None
     owasp_category: str | None = None
-    cvss_score: float | None = None
+    # CVSS v3 is defined as 0.0-10.0. Unbounded values would silently
+    # corrupt severity banding (styles/tokens.ts severityFromCvss) and the
+    # path-finding ease score, which normalizes by dividing by 10.
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
     exploit_public: bool = False
     auth_required: bool = True
     evidence: str | None = None
@@ -258,7 +262,7 @@ class FindingUpdate(BaseModel):
     title: str | None = None
     cwe: str | None = None
     owasp_category: str | None = None
-    cvss_score: float | None = None
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
     exploit_public: bool | None = None
     auth_required: bool | None = None
     evidence: str | None = None

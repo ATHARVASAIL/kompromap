@@ -1,10 +1,31 @@
 import { useEffect, useState } from "react";
 import { deleteNode, fetchNode, updateNode } from "../api/client";
+import { ScopeBadge, SeverityBadge, StatusBadge } from "./Badge";
 import ErrorBanner from "./ErrorBanner";
 import Skeleton from "./Skeleton";
 import Spinner from "./Spinner";
-import { useToast } from "./ToastProvider";
+import { useToast } from "./toastContext";
+import { severityFromCvss } from "../styles/tokens";
 import { NODE_TYPE_COLOR, NODE_TYPE_LABELS, type NodeDetail } from "../types/graph";
+
+type FindingStatus = "open" | "fixed" | "accepted-risk";
+const FINDING_STATUSES: FindingStatus[] = ["open", "fixed", "accepted-risk"];
+
+/** Render a node property with the right treatment for its type, rather
+ *  than String()-ing everything — `in_scope` used to display as a bare
+ *  "true"/"false", and finding status had no visual weight at all. */
+function renderValue(key: string, value: unknown): React.ReactNode {
+  if (key === "in_scope") return <ScopeBadge inScope={Boolean(value)} />;
+  if (key === "status" && FINDING_STATUSES.includes(value as FindingStatus)) {
+    return <StatusBadge status={value as FindingStatus} />;
+  }
+  if (typeof value === "boolean") {
+    return <span className={value ? "text-accent" : "text-text-tertiary"}>{value ? "yes" : "no"}</span>;
+  }
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
 
 interface DetailPanelProps {
   nodeId: string;
@@ -149,20 +170,20 @@ export default function DetailPanel({ nodeId, onClose, onChanged, onDeleted }: D
           </div>
 
           <dl className="space-y-2 border-t border-border pt-4">
+            {node.node_type === "finding" && (
+              <div>
+                <dt className="text-xs text-text-tertiary">severity</dt>
+                <dd className="mt-0.5">
+                  <SeverityBadge severity={severityFromCvss(node.cvss_score as number | null)} />
+                </dd>
+              </div>
+            )}
             {Object.entries(node)
               .filter(([key]) => !HIDDEN_FIELDS.has(key))
               .map(([key, value]) => (
                 <div key={key}>
-                  <dt className="text-xs text-text-tertiary">{key}</dt>
-                  <dd className="break-words text-text-primary">
-                    {Array.isArray(value)
-                      ? value.length
-                        ? value.join(", ")
-                        : "—"
-                      : value === null || value === ""
-                        ? "—"
-                        : String(value)}
-                  </dd>
+                  <dt className="text-xs text-text-tertiary">{key.replace(/_/g, " ")}</dt>
+                  <dd className="mt-0.5 break-words text-text-primary">{renderValue(key, value)}</dd>
                 </div>
               ))}
           </dl>

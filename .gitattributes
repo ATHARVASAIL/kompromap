@@ -1,0 +1,12 @@
+# Force LF endings on anything that gets executed inside a Linux container.
+# Git on Windows defaults to converting checkouts to CRLF, and a shell
+# script with CRLF endings fails inside a container with a confusing
+# "sh: not found" / "no such file or directory" error that points at the
+# interpreter rather than the line endings.
+*.sh text eol=lf
+Dockerfile text eol=lf
+Dockerfile.* text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+nginx.conf text eol=lf
+.env.example text eol=lf

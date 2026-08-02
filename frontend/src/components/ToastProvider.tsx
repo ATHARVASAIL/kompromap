@@ -1,18 +1,11 @@
-import { createContext, useCallback, useContext, useRef, useState } from "react";
-
-type ToastKind = "success" | "error" | "info";
+import { useCallback, useRef, useState } from "react";
+import { ToastContext, type ToastKind } from "./toastContext";
 
 interface Toast {
   id: number;
   message: string;
   kind: ToastKind;
 }
-
-interface ToastContextValue {
-  toast: (message: string, kind?: ToastKind) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
 
 const KIND_STYLE: Record<ToastKind, string> = {
   success: "border-accent/40 bg-accent/10 text-accent",
@@ -41,6 +34,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
+            role="status"
             className={`pointer-events-auto animate-toast-in rounded border px-3.5 py-2 font-mono text-xs shadow-elevated ${KIND_STYLE[t.kind]}`}
           >
             {t.message}
@@ -49,10 +43,4 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       </div>
     </ToastContext.Provider>
   );
-}
-
-export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used within a ToastProvider");
-  return ctx;
 }

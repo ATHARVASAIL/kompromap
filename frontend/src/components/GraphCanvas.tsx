@@ -381,9 +381,12 @@ export default function GraphCanvas({ graph, selectedNodeId, onSelectNode, highl
 
   return (
     <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full" />
+      {/* Very low-opacity radial behind the canvas — stops a sparse graph
+          reading as a flat void without competing with the nodes. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-canvas-depth" />
+      <div ref={containerRef} className="relative h-full w-full" />
 
-      <div className="absolute bottom-4 right-4 flex flex-col items-stretch overflow-hidden rounded border border-border bg-surface-1/90 font-mono text-xs text-text-secondary shadow-elevated backdrop-blur">
+      <div className="absolute bottom-4 right-4 flex flex-col items-stretch overflow-hidden rounded-lg border border-border bg-surface-1/80 font-mono text-xs text-text-secondary shadow-card backdrop-blur-md">
         <button
           onClick={() => zoomBy(1.25)}
           className="border-b border-border px-2.5 py-1.5 hover:bg-surface-2 hover:text-text-primary"

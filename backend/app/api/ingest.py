@@ -16,9 +16,32 @@ from app.services.ingestion import ingest_parse_result
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
+# Cap on uploaded scan files. Real Nmap/Burp XML from a large engagement can
+# legitimately run to tens of MB, so this is generous — but it must exist:
+# a bare `await file.read()` buffers the *entire* upload into memory, so
+# without a limit anyone can exhaust the server's RAM by POSTing a large
+# file. Read in chunks and abort as soon as the cap is passed, rather than
+# reading it all and then checking the size (which would defeat the point).
+MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MB
+_CHUNK = 1024 * 1024  # 1 MB
+
 
 async def _read_upload(file: UploadFile) -> bytes:
-    content = await file.read()
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_CHUNK)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                413,
+                f"Uploaded file exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+            )
+        chunks.append(chunk)
+
+    content = b"".join(chunks)
     if not content:
         raise HTTPException(422, "Uploaded file is empty")
     return content

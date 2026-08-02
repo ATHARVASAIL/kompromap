@@ -47,6 +47,25 @@ export default {
       boxShadow: {
         elevated: "0 8px 30px -8px rgb(0 0 0 / 0.5)",
         glow: "0 0 0 1px rgb(var(--accent) / 0.4), 0 0 20px -4px rgb(var(--accent) / 0.5)",
+        // Layered shadow — a single flat shadow reads as a sticker; two
+        // offsets (tight contact + soft ambient) is how real elevation looks.
+        card: "0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6)",
+        "card-hover": "0 2px 4px rgb(0 0 0 / 0.35), 0 16px 40px -16px rgb(0 0 0 / 0.7)",
+        "inner-top": "inset 0 1px 0 0 rgb(255 255 255 / 0.04)",
+      },
+      backgroundImage: {
+        // Subtle depth behind the graph canvas so it doesn't read as a flat
+        // void — a very low-opacity radial, not a decorative gradient.
+        "canvas-depth":
+          "radial-gradient(ellipse 80% 60% at 50% 40%, rgb(var(--accent) / 0.045), transparent 70%)",
+        "surface-sheen":
+          "linear-gradient(180deg, rgb(255 255 255 / 0.03) 0%, transparent 40%)",
+      },
+      transitionTimingFunction: {
+        // Slight overshoot — makes interactive elements feel responsive
+        // rather than merely animated.
+        snap: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        smooth: "cubic-bezier(0.22, 1, 0.36, 1)",
       },
       keyframes: {
         "fade-in-scale": {
@@ -65,12 +84,32 @@ export default {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "rise-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
+        "pulse-ring": {
+          "0%": { transform: "scale(0.95)", opacity: "0.7" },
+          "70%": { transform: "scale(1.3)", opacity: "0" },
+          "100%": { transform: "scale(1.3)", opacity: "0" },
+        },
+        "draw-arc": {
+          "0%": { strokeDashoffset: "var(--arc-length)" },
+          "100%": { strokeDashoffset: "var(--arc-offset)" },
+        },
       },
       animation: {
         "fade-in-scale": "fade-in-scale 150ms ease-out",
         "slide-in-right": "slide-in-right 200ms ease-out",
         "fade-in": "fade-in 150ms ease-out backwards",
         "toast-in": "toast-in 180ms ease-out",
+        "rise-in": "rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards",
+        shimmer: "shimmer 1.8s infinite",
+        "pulse-ring": "pulse-ring 2s cubic-bezier(0.24, 0, 0.38, 1) infinite",
+        "draw-arc": "draw-arc 1s cubic-bezier(0.22, 1, 0.36, 1) forwards",
       },
     },
   },

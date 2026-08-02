@@ -52,6 +52,15 @@
   body {
     @apply bg-surface-0 text-text-primary antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Monospace exists here to make data scannable — lining, tabular figures
+     keep columns aligned and stop animated counters from jittering. */
+  .font-mono,
+  code,
+  kbd {
+    font-variant-numeric: tabular-nums lining-nums;
   }
 
   button:not(:disabled) {
@@ -59,6 +68,20 @@
   }
   button:not(:disabled):active {
     transform: scale(0.97);
+  }
+
+  /* Inputs and selects get the same considered treatment as buttons —
+     default form controls are the fastest way to make a designed UI look
+     unfinished. */
+  input,
+  select,
+  textarea {
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+  input:hover:not(:disabled),
+  select:hover:not(:disabled),
+  textarea:hover:not(:disabled) {
+    @apply border-border-strong;
   }
 
   ::selection {
@@ -75,13 +98,20 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-surface-0;
+    @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-surface-3;
+    @apply rounded-full border-[3px] border-solid border-transparent bg-surface-3;
+    background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-border-strong;
+    background-clip: content-box;
+  }
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--surface-3)) transparent;
   }
 }
 

@@ -9,6 +9,7 @@ calls out by name).
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -111,8 +112,17 @@ def update_node(node_id: uuid.UUID, payload: dict, db: Session = Depends(get_db)
     if node is None:
         raise HTTPException(404, "Node not found")
 
+    # The body is typed as a raw dict because the correct update schema
+    # depends on the *stored* node's type, which isn't known until after
+    # the DB lookup. That means validating by hand here — and Pydantic's
+    # ValidationError is NOT the same class FastAPI auto-converts to a 422
+    # (that's RequestValidationError, raised only by its own body parsing),
+    # so without this catch an invalid field escapes as an unhandled 500.
     update_schema_cls = UPDATE_SCHEMA_BY_TYPE[NodeType(node.node_type)]
-    validated = update_schema_cls.model_validate(payload)
+    try:
+        validated = update_schema_cls.model_validate(payload)
+    except ValidationError as e:
+        raise HTTPException(422, e.errors()) from e
 
     for field, value in validated.model_dump(exclude_unset=True).items():
         setattr(node, field, value)

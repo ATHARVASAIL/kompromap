@@ -15,9 +15,21 @@ cd kompromap
 cp .env.prod.example .env
 ```
 
-Edit `.env` — at minimum, change `POSTGRES_PASSWORD` to something real, and
-set `CORS_ORIGINS` to the domain you'll actually serve the frontend from
-(e.g. `CORS_ORIGINS=https://kompromap.yourdomain.com`).
+Edit `.env`. At minimum:
+
+* **`POSTGRES_PASSWORD`** — change from the placeholder.
+* **`API_KEY`** — set this. Without it every endpoint is fully open, and
+  anyone who finds the URL can read, modify and delete your engagement
+  data. Generate one with:
+  `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+* **`CORS_ORIGINS`** — the domain you'll actually serve the frontend from,
+  e.g. `https://kompromap.yourdomain.com`.
+
+Note `API_KEY` is passed to the frontend build too, so the UI can
+authenticate. It's therefore inlined into the shipped JS and visible to
+anyone who loads the page — it gates anonymous access to a self-hosted
+instance, it is not a per-user secret. Anyone you give the URL to can read
+it out of the bundle.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
@@ -111,6 +123,7 @@ a static Vite build fine:
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | backend, postgres | Database credentials | `kompromap` / `kompromap` / `kompromap` (dev-only — **change these in prod**) |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | backend | Where Postgres lives | `postgres` / `5432` in compose |
 | `CORS_ORIGINS` | backend | Comma-separated list of origins allowed to call the API | `http://localhost:5173,http://localhost:3000` |
+| `API_KEY` | backend + frontend build | Enables API-key auth on all data routes. **Set this for any non-localhost deployment.** | unset (no auth) |
 | `ANTHROPIC_API_KEY` | backend | Enables LLM-generated attack-chain narratives | unset (falls back to a template narrative — see README) |
 | `ANTHROPIC_MODEL` | backend | Which Claude model to use for narratives | `claude-sonnet-5` |
 | `UVICORN_WORKERS` | backend (prod only) | Number of worker processes | `2` |
@@ -119,6 +132,7 @@ a static Vite build fine:
 ## Post-deploy checklist
 
 - [ ] Changed `POSTGRES_PASSWORD` from the placeholder
+- [ ] Set `API_KEY` (otherwise the whole API is anonymous)
 - [ ] `CORS_ORIGINS` set to your real frontend domain(s), not `*` or `localhost`
 - [ ] TLS terminated in front of the app (Caddy/Traefik/nginx+certbot, or your platform's built-in TLS)
 - [ ] Confirmed `GET /api/health` and `GET /api/health/db` both return 200 from the deployed backend

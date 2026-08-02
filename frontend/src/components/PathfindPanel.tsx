@@ -3,7 +3,7 @@ import { exportChain, findBestPaths, findPathsFromEntryPoint, generateNarrative 
 import EmptyState from "./EmptyState";
 import ErrorBanner from "./ErrorBanner";
 import Spinner from "./Spinner";
-import { useToast } from "./ToastProvider";
+import { useToast } from "./toastContext";
 import { EDGE_TYPE_LABELS, NODE_TYPE_COLOR, type GraphNode, type PathResult } from "../types/graph";
 
 interface PathfindPanelProps {

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getDashboard, listNodesByType } from "../api/client";
 import ErrorBanner from "../components/ErrorBanner";
+import ThreatGauge from "../components/ThreatGauge";
+import InfoTip from "../components/Tooltip";
+import { useCountUp } from "../hooks/useCountUp";
 import Skeleton from "../components/Skeleton";
 import { NODE_TYPE_COLOR, NODE_TYPE_LABELS, type DashboardData, type NodeType } from "../types/graph";
 import { SEVERITY_LABELS, SEVERITY_ORDER, severityColor, severityFromCvss } from "../styles/tokens";
@@ -67,12 +70,45 @@ export default function DashboardPage({ engagementId, onOpenSnapshots }: Dashboa
       )}
 
       {data && (
-        <div className="grid grid-cols-4 gap-3">
-          <StatCard label="Total nodes" value={data.total_nodes} delay={0} />
-          <StatCard label="Total edges" value={data.total_edges} delay={40} />
-          <StatCard label="Entry points" value={data.entry_point_count} accent="text-accent" delay={80} />
-          <StatCard label="Crown jewels" value={data.crown_jewel_count} accent="text-severity-critical" delay={120} />
-        </div>
+        <>
+          <div className="mb-4 animate-rise-in">
+            <ThreatGauge
+              bestPathCost={data.highest_ease_chain?.total_cost ?? null}
+              pathCount={data.paths_to_crown_jewels_count}
+              crownJewelCount={data.crown_jewel_count}
+              entryPointCount={data.entry_point_count}
+            />
+          </div>
+
+          <div className="grid grid-cols-4 gap-3">
+            <StatCard
+              label="Nodes"
+              value={data.total_nodes}
+              delay={40}
+              hint="Everything in the graph — assets, services, findings and more"
+            />
+            <StatCard
+              label="Edges"
+              value={data.total_edges}
+              delay={80}
+              hint="Relationships connecting those nodes"
+            />
+            <StatCard
+              label="Entry points"
+              value={data.entry_point_count}
+              accent="text-accent"
+              delay={120}
+              hint="Where an unauthenticated attacker could start"
+            />
+            <StatCard
+              label="Crown jewels"
+              value={data.crown_jewel_count}
+              accent="text-severity-critical"
+              delay={160}
+              hint="What you're protecting — the targets paths are measured against"
+            />
+          </div>
+        </>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-4">
@@ -185,27 +221,34 @@ function StatCard({
   value,
   accent,
   delay = 0,
+  hint,
 }: {
   label: string;
   value: number;
   accent?: string;
   delay?: number;
+  hint?: string;
 }) {
-  return (
+  const shown = useCountUp(value);
+  const card = (
     <div
       style={{ animationDelay: `${delay}ms` }}
-      className="animate-fade-in rounded-md border border-border bg-surface-1 px-4 py-3"
+      className="group animate-rise-in rounded-lg border border-border bg-surface-1 bg-surface-sheen px-4 py-3 shadow-card transition-all duration-200 ease-smooth hover:-translate-y-0.5 hover:border-border-strong hover:shadow-card-hover"
     >
-      <div className="font-mono text-[11px] text-text-tertiary">{label}</div>
-      <div className={`mt-1 font-sans text-2xl font-semibold ${accent ?? "text-text-primary"}`}>{value}</div>
+      <div className="font-mono text-[11px] uppercase tracking-wide text-text-tertiary">{label}</div>
+      {/* tabular-nums stops the width jittering while the value counts up */}
+      <div className={`mt-1 font-sans text-2xl font-semibold tabular-nums ${accent ?? "text-text-primary"}`}>
+        {shown}
+      </div>
     </div>
   );
+  return hint ? <InfoTip label={hint}>{card}</InfoTip> : card;
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-surface-1 p-4">
-      <h2 className="mb-3 font-sans text-xs font-medium text-text-secondary">{title}</h2>
+    <div className="animate-rise-in rounded-lg border border-border bg-surface-1 bg-surface-sheen p-4 shadow-card">
+      <h2 className="mb-3 font-sans text-xs font-medium uppercase tracking-wide text-text-tertiary">{title}</h2>
       {children}
     </div>
   );

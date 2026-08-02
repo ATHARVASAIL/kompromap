@@ -28,7 +28,12 @@ class Settings(BaseSettings):
     # cors_origin_list below avoids that footgun.
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
-    # Optional: Anthropic API key for Phase 5 narrative generation
+    # Optional API-key auth. Unset (default) = no auth, which is fine for
+    # localhost. Set it for any deployment reachable off your machine —
+    # see app/core/security.py and DEPLOYMENT.md.
+    api_key: str | None = None
+
+    # Optional: Anthropic API key for narrative generation
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
 

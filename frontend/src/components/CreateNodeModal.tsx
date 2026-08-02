@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createNode } from "../api/client";
 import ErrorBanner from "./ErrorBanner";
 import Spinner from "./Spinner";
-import { useToast } from "./ToastProvider";
+import { useToast } from "./toastContext";
 import { NODE_TYPE_LABELS, type NodeType } from "../types/graph";
 
 interface CreateNodeModalProps {

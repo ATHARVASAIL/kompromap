@@ -3,17 +3,21 @@
 # separate for docker-compose.yml's local-dev workflow — this one is what
 # docker-compose.prod.yml and the CD workflow build.
 
-FROM node:20-slim AS build
+FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-# VITE_API_BASE_URL is read at build time (Vite inlines env vars into the
-# bundle) — pass it as a build arg if the backend is hosted separately.
+# Both are read at build time (Vite inlines env vars into the bundle).
+# VITE_API_KEY is therefore visible in the shipped JS — it gates anonymous
+# access to a self-hosted instance, it is not a per-user secret. See
+# backend/app/core/security.py for the threat model.
 ARG VITE_API_BASE_URL=""
+ARG VITE_API_KEY=""
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_API_KEY=${VITE_API_KEY}
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime

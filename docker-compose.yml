@@ -36,6 +36,11 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
+    environment:
+      # Inside this container, "localhost" is the container itself — the
+      # Vite dev-server proxy has to target the compose service name or
+      # every /api/* call fails with ECONNREFUSED.
+      VITE_PROXY_TARGET: http://backend:8000
     ports:
       - "5173:5173"
     volumes:

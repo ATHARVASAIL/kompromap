@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createEdge } from "../api/client";
 import ErrorBanner from "./ErrorBanner";
 import Spinner from "./Spinner";
-import { useToast } from "./ToastProvider";
+import { useToast } from "./toastContext";
 import { EDGE_TYPE_LABELS, type EdgeType, type GraphNode } from "../types/graph";
 
 interface CreateEdgeModalProps {

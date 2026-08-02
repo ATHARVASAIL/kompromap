@@ -1,35 +1,51 @@
 <div align="center">
 
-# 🗺️ Kompromap
+<br>
 
-### Stop reading flat CVSS tables. Start seeing the attack chain.
+<img src="https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&weight=600&size=34&pause=100000&color=2DD4E8&center=true&vCenter=true&repeat=false&width=440&height=52&lines=KOMPROMAP" alt="Kompromap" />
 
-Kompromap ingests raw VAPT tool output (Nmap, Nuclei, Amass/Subfinder,
-Burp/ZAP) and manual findings, then auto-assembles them into a queryable
-attack-chain graph — answering the one question every pentest report tries
-to answer in prose: **what's the actual path from an unauthenticated
-attacker to the thing that matters?**
+<p><em>Stop reading flat CVSS tables.<br/>Start seeing the attack chain.</em></p>
 
-![Typing SVG](https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&size=20&pause=1200&color=2DD4E8&center=true&vCenter=true&width=680&lines=Subdomain+takeover+%E2%86%92+Stored+XSS+%E2%86%92+Session+theft;IDOR+on+%2Fapi%2Fv2%2Fusers%2F%7Bid%7D+%E2%86%92+PII+dump;Not+a+flat+CVSS+table.+An+attack+chain.)
+<br>
 
-[![CI](https://github.com/OWNER/kompromap/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/kompromap/actions/workflows/ci.yml)
-[![Docker Publish](https://github.com/OWNER/kompromap/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/OWNER/kompromap/actions/workflows/docker-publish.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2DD4E8.svg?style=flat-square)](./LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](./backend)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](./backend)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg?style=flat-square&logo=react&logoColor=white)](./frontend)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](./frontend)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1.svg?style=flat-square&logo=postgresql&logoColor=white)](./backend)
+<img src="https://readme-typing-svg.demolab.com/?font=JetBrains+Mono&size=15&pause=1400&color=9099AC&center=true&vCenter=true&width=760&height=40&lines=%5Bsubdomain+takeover%5D+%E2%86%92+%5Bstored+XSS%5D+%E2%86%92+%5Bsession+theft%5D+%E2%86%92+%5BIDOR%5D+%E2%86%92+%5B40%2C000+PII+records%5D;none+of+those+are+critical+alone.+chained%2C+they're+a+full+compromise.;kompromap+finds+that+chain+for+you+%E2%80%94+and+ranks+it+by+how+easy+it+is." alt="Attack chain example" />
 
-<sub>⚠️ Replace <code>OWNER</code> in the badge URLs above with your GitHub username/org once this is pushed — they 404 until then.</sub>
+<br><br>
+
+[![CI](https://img.shields.io/github/actions/workflow/status/OWNER/kompromap/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0F131B&color=2DD4E8)](https://github.com/OWNER/kompromap/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-2DD4E8?style=for-the-badge&labelColor=0F131B)](./LICENSE)
+[![Tests](https://img.shields.io/badge/tests-278_passing-4C8DF0?style=for-the-badge&labelColor=0F131B)](#testing)
+
+<br>
+
+<img src="https://skillicons.dev/icons?i=python,fastapi,postgres,react,ts,tailwind,docker,githubactions&theme=dark" alt="Tech stack" />
+
+<br><br>
+
+<sub><b>⚠️ Before pushing:</b> replace <code>OWNER</code> in the CI badge URL with your GitHub username, or it will 404.</sub>
+
+<br>
 
 </div>
 
 ---
 
+<div align="center">
+
+### The problem, in one line
+
+</div>
+
+> Every pentest produces a pile of individually-scored findings — a subdomain takeover here, a stored XSS there, an IDOR somewhere else. **None of them look critical alone. Chained together, they're a full compromise.**
+
+Existing graph tools (BloodHound and friends) map identity and permission graphs *within one system*. That's a different problem from chaining independent technical vulnerabilities across an external web and API surface. Kompromap fills that gap: raw tool output in, attack-chain graph out, with a path-finding engine that answers **"what's the easiest way in?"**
+
+---
+
+---
+
 ## Table of contents
 
-- [Why](#why)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Quick start (Docker)](#quick-start-docker)
@@ -46,36 +62,18 @@ attacker to the thing that matters?**
 - [Contributing](#contributing)
 - [License](#license)
 
-## Why
-
-Every pentest produces a pile of individually-scored findings — a
-subdomain takeover here, a stored XSS there, an IDOR somewhere else. None
-of them look critical alone. **Chained together, they're a full
-compromise.** Existing graph tools (BloodHound and friends) map identity/
-permission graphs within one system — a totally different problem from
-chaining independent technical vulnerabilities across an external web/API
-surface. Kompromap fills that gap: raw tool output in, attack-chain graph
-out, with a path-finding engine that answers "what's the easiest way in?"
-
 ## Features
 
-- 🕸️ **Attack-chain graph** — Cytoscape.js visualization with per-type SVG
-  icons (8 node types, 7 edge types), animated layout transitions, hover
-  highlighting, and search-as-you-type
-- 📥 **Auto-ingestion** — upload raw Nmap/Nuclei/Amass-Subfinder/Burp-ZAP
-  output and it's parsed straight into linked graph nodes
-- 🎯 **Path-finding** — Dijkstra over a weighted graph (CVSS + exploit
-  availability + auth requirement), not just shortest-hop-count — finds
-  the *most realistic* chain, which might be five easy hops instead of one
-  hard one
-- 📝 **Narrative generation** — LLM-written (or template-fallback) plain-
-  English paragraph describing a selected chain, exportable as
-  Markdown/JSON for a report
-- 🗂️ **Multi-engagement workspaces** — fully isolated per-client graphs,
-  with point-in-time snapshots and diffing
-- 📊 **Dashboard** — node/edge counts, findings-by-severity chart, paths-
-  to-crown-jewels, highest-ease chain found
-- ⌨️ **Command palette** (Ctrl/Cmd+K) and keyboard shortcuts throughout
+| | |
+|---|---|
+| 🕸️ **Attack-chain graph** | Cytoscape.js canvas with per-type SVG icons and shapes, distinct line styles for all 7 relationship types, animated layout transitions, hover-to-isolate, and search-as-you-type |
+| 📥 **Auto-ingestion** | Drop in raw Nmap, Nuclei, Amass/Subfinder or Burp/ZAP output — it's parsed straight into linked graph nodes, deduplicated by natural key |
+| 🎯 **Path-finding** | Dijkstra over a weighted graph (CVSS + exploit availability + auth requirement). Finds the *most realistic* chain, not the shortest — five easy hops can beat one hard one |
+| 📊 **Threat gauge** | One number synthesizing how easily an attacker reaches a crown jewel, with the reasoning behind it |
+| 📝 **Report narratives** | Plain-English paragraph describing a selected chain, exportable as Markdown or JSON. Works with or without an LLM key |
+| 🗂️ **Multi-engagement** | Fully isolated per-client graphs, with point-in-time snapshots and diffing |
+| ⌨️ **Keyboard-driven** | Command palette (`Ctrl/Cmd+K`), `/` to search, `f` to filter, `?` for help, `Esc` to close |
+| 🔐 **Optional auth** | API-key protection for anything deployed beyond localhost |
 
 ## Architecture
 
@@ -289,18 +287,45 @@ cd backend && pytest -v
 cd frontend && npx tsc -b && npm run build && npx eslint src --ext ts,tsx
 ```
 
-**Backend — 137+ tests:** model/mapper sanity checks, parser unit tests
-against sanitized sample files in `tests/fixtures/`, ingestion-service
-tests (including cross-engagement isolation), scoring/path-finding tests
-validated against the spec's own example attack chain, and full API tests
-covering every router.
+**Backend — 194 tests:** model/mapper checks, parser unit tests against
+sanitized fixtures, ingestion (including cross-engagement isolation),
+scoring/path-finding validated against the spec's own example chain, full
+API coverage for every router, plus security (API-key auth), input
+validation (CVSS/port ranges) and Docker-wiring regression suites.
 
-Tests run against an in-memory SQLite DB rather than Postgres — the model
+**Frontend — 84 tests:** API client (URL construction, verbs, auth headers,
+error handling), design tokens and severity banding, and component tests
+for ImportPage, FindingsPage, the command palette, toasts, the threat
+gauge, tooltips and the count-up hook (including its reduced-motion
+behaviour).
+
+Backend tests run against in-memory SQLite rather than Postgres — the model
 layer uses cross-dialect column types (`sqlalchemy.Uuid`,
-`JSON().with_variant(...)`) specifically so it's exercisable without a
-live Postgres instance. This produces byte-for-byte identical DDL on
-Postgres (verified in `test_models.py`); it's a test-only convenience, not
-a stack change.
+`JSON().with_variant(...)`) specifically so it's exercisable without a live
+database. This produces byte-for-byte identical DDL on Postgres (verified
+in `test_models.py`); it's a test-only convenience, not a stack change, and
+it means CI needs no database service.
+
+## Security
+
+- **Optional API-key auth.** Unset `API_KEY` = no auth, which is fine on
+  localhost and preserves the original single-user workflow. Set it and
+  every `/api` route except the health checks requires an `X-API-Key`
+  header (constant-time compared), and the OpenAPI docs are hidden.
+  **Set this for any deployment reachable off your own machine** — the data
+  here is a map of a client's vulnerabilities.
+- Uploads are capped (64 MB) and read in chunks, so a large file can't
+  exhaust server memory.
+- XML parsing uses `defusedxml`, so XXE and billion-laughs payloads in
+  scan files are rejected rather than executed.
+- All database access goes through SQLAlchemy's expression API — no string
+  interpolation into SQL anywhere.
+- CVSS scores and ports are range-validated, so bad data can't silently
+  corrupt severity banding or path-finding scores.
+- Production dependencies carry no known vulnerabilities (`npm audit`
+  clean; the two dev-only `vite`/`esbuild` advisories don't apply — the
+  production image is a bare nginx stage serving static files, with no
+  Vite present).
 
 ## Frontend architecture
 
@@ -380,3 +405,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 [MIT](./LICENSE) — a default placeholder; change it if you'd rather use
 something else.
+
+---
+
+<div align="center">
+<br>
+<sub>Kompromap turns scan output into the one thing a pentest report is really trying to say:<br/><b>here is the path, and here is how easy it was.</b></sub>
+<br><br>
+</div>

@@ -3,11 +3,16 @@
 # Alembic migrations before the server starts, and exposes a healthcheck
 # hitting the same /api/health the app itself already provides.
 
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
+# Pinned to Debian bookworm (rather than floating to whatever python:3.11-
+# slim currently resolves to) because the newer trixie release has had
+# intermittent package-mirror hash mismatches. The retry below is extra
+# insurance against a transient bad mirror hit either way.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    -o Acquire::Retries=3 \
     build-essential \
     libpq-dev \
     libxml2-dev \
@@ -19,10 +24,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-RUN chmod +x docker-entrypoint.prod.sh
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
     CMD curl -f http://localhost:8000/api/health || exit 1
 
-ENTRYPOINT ["./docker-entrypoint.prod.sh"]
+# Invoked via `sh` (rather than relying on the file's execute bit) so this
+# works regardless of whether the host filesystem the build context came
+# from preserves Unix permissions — Windows and some CI checkouts don't.
+ENTRYPOINT ["sh", "./docker-entrypoint.prod.sh"]

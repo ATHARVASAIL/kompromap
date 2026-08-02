@@ -3,7 +3,7 @@ import { ingestFile } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import ErrorBanner from "../components/ErrorBanner";
 import Spinner from "../components/Spinner";
-import { useToast } from "../components/ToastProvider";
+import { useToast } from "../components/toastContext";
 
 interface ImportPageProps {
   engagementId: string;
@@ -12,16 +12,21 @@ interface ImportPageProps {
 
 type Tool = "nmap" | "nuclei" | "amass" | "burp";
 
+// `accepts` is a *hint* for the OS file picker, not validation — the
+// backend parses by content, not filename. Each list therefore ends with
+// "*" so a legitimately-named-differently file (scan.out, results.log, or
+// no extension at all, all common with real tool output) is still
+// selectable rather than greyed out.
 const TOOLS: { value: Tool; label: string; accepts: string; hint: string }[] = [
-  { value: "nmap", label: "Nmap", accepts: ".xml", hint: "XML output (nmap -oX)" },
-  { value: "nuclei", label: "Nuclei", accepts: ".json,.jsonl", hint: "JSON or JSON Lines output" },
+  { value: "nmap", label: "Nmap", accepts: ".xml,*", hint: "XML output (nmap -oX)" },
+  { value: "nuclei", label: "Nuclei", accepts: ".json,.jsonl,.txt,*", hint: "JSON or JSON Lines output" },
   {
     value: "amass",
     label: "Amass / Subfinder",
-    accepts: ".txt,.json,.jsonl",
+    accepts: ".txt,.json,.jsonl,*",
     hint: "Plain text or JSON subdomain list",
   },
-  { value: "burp", label: "Burp Suite / ZAP", accepts: ".xml", hint: "XML issue/alert export" },
+  { value: "burp", label: "Burp Suite / ZAP", accepts: ".xml,*", hint: "XML issue/alert export" },
 ];
 
 interface ImportSummary {
@@ -105,11 +110,21 @@ export default function ImportPage({ engagementId, onImported }: ImportPageProps
           <div>
             <label className="mb-1.5 block text-text-tertiary">file</label>
             <input
+              // Keyed on the tool so React remounts the input when you
+              // switch tools. Without this it reuses the same DOM node and
+              // keeps the previously-rendered `accept` filter, which meant
+              // the picker stayed stuck on Nmap's ".xml" no matter which
+              // tool you selected.
+              key={tool}
               type="file"
               accept={activeTool.accepts}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="w-full rounded border border-border bg-surface-0 px-2 py-1.5 text-text-secondary file:mr-2 file:rounded file:border-0 file:bg-surface-2 file:px-2 file:py-1 file:text-text-secondary"
             />
+            <p className="mt-1 text-[11px] text-text-tertiary">
+              Not seeing your file? The picker filters by extension — switch it to
+              "All files" in the dialog. The backend parses by content, not filename.
+            </p>
           </div>
 
           {error && <ErrorBanner message={error} />}
