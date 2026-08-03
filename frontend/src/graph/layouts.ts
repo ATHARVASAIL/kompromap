@@ -27,7 +27,22 @@ const BASE = { animate: true, animationDuration: 500, padding: 48 } as const;
  * pushed past the horizon. Verified against a synthetic 200-node/320-edge
  * graph: unbounded gave 1.7e+50, bounded gives ~2.5e+3.
  */
-const BOUNDING_BOX = { x1: 0, y1: 0, w: 2400, h: 1600 } as const;
+const BOUNDING_BOX = { x1: 0, y1: 0, w: 1700, h: 900 } as const;
+
+/**
+ * Force-directed gets a *wider, shorter* box than the others.
+ *
+ * Unbounded, `cose` on a sparse graph (many small disconnected components,
+ * which is typical after ingesting a subdomain list) grows far taller than
+ * it is wide — measured at 2743x3421 for a real 118-node/92-edge
+ * engagement. Against a landscape viewport that forces `fit` down to ~19%
+ * zoom, where nodes are unreadable specks and the user has to zoom and pan
+ * constantly.
+ *
+ * Constraining it to roughly the viewport's aspect ratio takes the same
+ * graph to ~64% fit zoom with nodes still well separated.
+ */
+const FORCE_BOUNDING_BOX = { x1: 0, y1: 0, w: 1800, h: 950 } as const;
 
 /**
  * Layouts, ordered by how often they're actually useful for this data.
@@ -44,7 +59,21 @@ export const LAYOUTS: LayoutDef[] = [
     id: "cose",
     label: "Force",
     hint: "Physics-based clustering. Best general view of a whole engagement.",
-    build: () => ({ ...BASE, name: "cose", randomize: false, numIter: 100 }),
+    build: () => ({
+      ...BASE,
+      name: "cose",
+      randomize: false,
+      numIter: 120,
+      boundingBox: FORCE_BOUNDING_BOX,
+      // Tuned against a real engagement graph rather than defaults:
+      // lower repulsion and shorter ideal edges keep related nodes
+      // legibly close, while componentSpacing stops the disconnected
+      // subgraphs drifting into their own distant islands.
+      nodeRepulsion: 4500,
+      idealEdgeLength: 55,
+      componentSpacing: 70,
+      gravity: 1.5,
+    }),
   },
   {
     id: "breadthfirst",
@@ -55,7 +84,7 @@ export const LAYOUTS: LayoutDef[] = [
         ...BASE,
         name: "breadthfirst",
         directed: true,
-        spacingFactor: 1.3,
+        spacingFactor: 0.9,
         avoidOverlap: true,
         boundingBox: BOUNDING_BOX,
         // Seeding roots with the tagged entry points is what makes this

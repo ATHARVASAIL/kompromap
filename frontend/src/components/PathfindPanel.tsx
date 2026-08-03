@@ -19,7 +19,10 @@ interface PathfindPanelProps {
   entryPoints: GraphNode[];
   crownJewelCount: number;
   onSelectPath: (path: PathResult | null) => void;
-  onClose: () => void;
+  /** Omit when the panel is the whole view (Path Analysis page) rather
+   *  than an overlay — a close button that can't close anything is worse
+   *  than no button. */
+  onClose?: () => void;
 }
 
 function downloadFile(filename: string, content: string, mimeType: string) {
@@ -132,9 +135,15 @@ export default function PathfindPanel({
     <aside className="flex h-full w-96 animate-slide-in-right flex-col border-l border-border bg-surface-1/70 font-mono text-sm">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <span className="text-text-tertiary">path-finder</span>
-        <button onClick={onClose} className="text-text-tertiary hover:text-text-primary" aria-label="Close">
-          ✕
-        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-text-tertiary transition-colors hover:text-text-primary"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <div className="space-y-3 border-b border-border px-4 py-4">

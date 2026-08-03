@@ -242,7 +242,11 @@ export default function GraphCanvas({
       elements: [],
       style: buildStylesheet(),
       layout: { name: "preset" },
-      minZoom: 0.15,
+      // Floor raised from 0.15: below ~35% the node icons and labels are
+      // unreadable specks, so allowing it just gives the user a view they
+      // have to undo. Bounded layouts mean `fit` no longer needs to go
+      // that low anyway.
+      minZoom: 0.35,
       maxZoom: 3,
       wheelSensitivity: 0.25,
     });

@@ -141,3 +141,58 @@ describe("manual positioning", () => {
     expect(cy.getElementById("n5").position()).toEqual({ x: 9999, y: 8888 });
   });
 });
+
+describe("fit zoom is usable without manual zooming", () => {
+  /**
+   * Regression guard for a real, user-reported bug: unbounded `cose` on a
+   * sparse 118-node engagement grew to 2743x3421, which forced `fit` down
+   * to ~19% zoom. At that scale node icons and labels are unreadable
+   * specks and every session starts with the user zooming and panning.
+   *
+   * The viewport figures below approximate the app's canvas area with the
+   * sidebar and toolbar accounted for.
+   */
+  const VIEWPORT_W = 1330;
+  const VIEWPORT_H = 680;
+
+  function fitZoom(positions: { x: number; y: number }[]) {
+    const xs = positions.map((p) => p.x);
+    const ys = positions.map((p) => p.y);
+    const w = Math.max(...xs) - Math.min(...xs);
+    const h = Math.max(...ys) - Math.min(...ys);
+    return Math.min(VIEWPORT_W / (w + 120), VIEWPORT_H / (h + 120));
+  }
+
+  /** Sparse graph with many small components — what ingesting a subdomain
+   *  list actually produces, and the shape that broke the old layout. */
+  function sparseGraph(n = 118, e = 92) {
+    const nodes = Array.from({ length: n }, (_, i) => ({ data: { id: `n${i}` } }));
+    const edges: { data: Record<string, string> }[] = [];
+    for (let i = 0; i < e; i++) {
+      const s = i % n;
+      const t = (i * 3 + 1) % n;
+      if (s !== t) edges.push({ data: { id: `e${i}`, source: `n${s}`, target: `n${t}` } });
+    }
+    return cytoscape({ headless: true, elements: [...nodes, ...edges] });
+  }
+
+  for (const def of LAYOUTS) {
+    it(`${def.id} fits at a legible zoom level`, () => {
+      const cy = sparseGraph();
+      cy.layout({ ...def.build([]), animate: false } as never).run();
+      // 0.35 matches GraphCanvas's minZoom — below it, nodes are specks.
+      expect(fitZoom(cy.nodes().map((n) => n.position()))).toBeGreaterThan(0.35);
+    });
+  }
+
+  it("force layout in particular stays wide rather than tall", () => {
+    /** The original bug was vertical growth fighting a landscape viewport. */
+    const cy = sparseGraph();
+    const def = getLayout("cose");
+    cy.layout({ ...def.build([]), animate: false } as never).run();
+    const ps = cy.nodes().map((n) => n.position());
+    const w = Math.max(...ps.map((p) => p.x)) - Math.min(...ps.map((p) => p.x));
+    const h = Math.max(...ps.map((p) => p.y)) - Math.min(...ps.map((p) => p.y));
+    expect(w).toBeGreaterThan(h);
+  });
+});
