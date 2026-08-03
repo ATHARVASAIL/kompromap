@@ -117,6 +117,7 @@ def ingest_parse_result(db: Session, result: ParseResult, engagement_id: uuid.UU
             cwe=pf.cwe,
             owasp_category=pf.owasp_category,
             cvss_score=pf.cvss_score,
+            cvss_vector=pf.cvss_vector,
             exploit_public=pf.exploit_public,
             auth_required=pf.auth_required,
             evidence=pf.evidence,

@@ -221,6 +221,12 @@ class Finding(Node):
     cwe: Mapped[str | None] = mapped_column(String(32), nullable=True)
     owasp_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
     cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Full CVSS v3 vector (e.g. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H").
+    # The score alone is a single number; the vector says *why* — including
+    # Attack Complexity, which the ease_score formula needs and which was
+    # previously a flat placeholder for every finding. Nuclei templates with
+    # `cvss-metrics` supply this for free. See app/services/cvss.py.
+    cvss_vector: Mapped[str | None] = mapped_column(String(128), nullable=True)
     exploit_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     auth_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     evidence: Mapped[str | None] = mapped_column(Text, nullable=True)

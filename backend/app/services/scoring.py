@@ -29,7 +29,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.models import Edge, EdgeType, Finding, Node, NodeType
+from app.models import Edge, EdgeType, Finding, Node
+from app.services.cvss import ComplexityBasis, complexity_from_vector, parse_cvss_vector
 
 # Edge type where the spec's ease_score formula actually applies.
 EXPLOIT_EDGE_TYPE = EdgeType.YIELDS
@@ -62,19 +63,79 @@ class ScoringWeights:
 DEFAULT_WEIGHTS = ScoringWeights()
 
 
-def ease_score(finding: Finding, weights: ScoringWeights = DEFAULT_WEIGHTS) -> float:
-    normalized_cvss = (finding.cvss_score or 0.0) / 10.0
-    exploit_public_term = 1.0 if finding.exploit_public else 0.0
-    auth_required_term = 0.0 if finding.auth_required else 1.0
-    complexity_term = 1.0 - weights.default_complexity
+@dataclass(frozen=True)
+class ScoreBreakdown:
+    """A scored finding, with every term shown separately.
 
-    score = (
-        normalized_cvss * weights.cvss
-        + exploit_public_term * weights.exploit_public
-        + auth_required_term * weights.auth_required
-        + complexity_term * weights.complexity
+    Path-finding used to surface a single opaque cost, which made it
+    impossible to answer "why is this chain ranked above that one?" —
+    the most obvious question a tester would ask. Returning the terms lets
+    the UI show the reasoning.
+    """
+
+    ease_score: float
+    normalized_cvss: float
+    exploit_public: float
+    unauthenticated: float
+    complexity: float
+    complexity_basis: ComplexityBasis
+    # Per-term contributions after weighting — these sum to ease_score.
+    contributions: dict[str, float]
+
+    @property
+    def complexity_is_measured(self) -> bool:
+        """True when complexity came from a real CVSS vector rather than
+        the configured fallback. The UI shows measured and assumed values
+        differently — presenting both with equal confidence would be
+        misleading."""
+        return self.complexity_basis is ComplexityBasis.VECTOR
+
+
+def score_finding(
+    finding: Finding, weights: ScoringWeights = DEFAULT_WEIGHTS
+) -> ScoreBreakdown:
+    """Full ease_score computation with its terms exposed."""
+    normalized_cvss = min(max((finding.cvss_score or 0.0) / 10.0, 0.0), 1.0)
+    exploit_public_term = 1.0 if finding.exploit_public else 0.0
+
+    # Prefer the CVSS vector's Privileges Required over the coarser
+    # auth_required boolean when we have it — PR:N/PR:L/PR:H distinguishes
+    # "no login", "any user" and "admin", which auth_required flattens.
+    parsed = parse_cvss_vector(getattr(finding, "cvss_vector", None))
+    if parsed is not None and parsed.privileges_required:
+        unauth_term = 1.0 if parsed.is_unauthenticated else 0.0
+    else:
+        unauth_term = 0.0 if finding.auth_required else 1.0
+
+    complexity, basis = complexity_from_vector(
+        getattr(finding, "cvss_vector", None), weights.default_complexity
     )
-    return max(0.0, min(1.0, score))
+    # The formula credits *ease*, so invert: low complexity -> high score.
+    complexity_term = 1.0 - complexity
+
+    contributions = {
+        "cvss": normalized_cvss * weights.cvss,
+        "exploit_public": exploit_public_term * weights.exploit_public,
+        "unauthenticated": unauth_term * weights.auth_required,
+        "complexity": complexity_term * weights.complexity,
+    }
+    total = max(0.0, min(1.0, sum(contributions.values())))
+
+    return ScoreBreakdown(
+        ease_score=total,
+        normalized_cvss=normalized_cvss,
+        exploit_public=exploit_public_term,
+        unauthenticated=unauth_term,
+        complexity=complexity,
+        complexity_basis=basis,
+        contributions=contributions,
+    )
+
+
+def ease_score(finding: Finding, weights: ScoringWeights = DEFAULT_WEIGHTS) -> float:
+    """Just the number. Kept as the simple entry point for path-finding —
+    score_finding() is for anything that needs to explain itself."""
+    return score_finding(finding, weights).ease_score
 
 
 def edge_cost(edge: Edge, source_node: Node, weights: ScoringWeights = DEFAULT_WEIGHTS) -> float:

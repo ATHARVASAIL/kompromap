@@ -1,7 +1,7 @@
 import type { Engagement } from "../types/graph";
 import EngagementSwitcher from "./EngagementSwitcher";
 
-export type Section = "graph" | "findings" | "pathfind" | "dashboard" | "import";
+export type Section = "graph" | "findings" | "pathfind" | "report" | "dashboard" | "import";
 
 interface SidebarProps {
   active: Section;
@@ -45,6 +45,17 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
         <circle cx="5" cy="18" r="2" />
         <circle cx="19" cy="6" r="2" />
         <path d="M6.6 16.7 16 8.5" strokeDasharray="2.5 2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: "report",
+    label: "Report",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M6.5 2.5h8L19 7v14.5H6.5z" />
+        <path d="M14 2.5V7h5" />
+        <path d="M9.5 12h7M9.5 15.5h7M9.5 19h4" />
       </svg>
     ),
   },

@@ -204,6 +204,31 @@ export function generateNarrative(nodeIds: string[]): Promise<NarrativeResponse>
   }).then((r) => handle<NarrativeResponse>(r));
 }
 
+export type ReportFormat = "json" | "markdown" | "html";
+
+export interface EngagementReportResponse {
+  format: ReportFormat;
+  content?: string;
+  data?: Record<string, unknown>;
+}
+
+/** Full engagement report — every finding, chain, scope item and caveat. */
+export function generateEngagementReport(
+  format: ReportFormat,
+  opts: { engagementId?: string; includeNarratives?: boolean; weights?: ScoringWeights } = {},
+): Promise<EngagementReportResponse> {
+  return fetch(`${API_BASE}/api/reports/engagement`, {
+    method: "POST",
+    headers: JSON_HEADERS(),
+    body: JSON.stringify({
+      format,
+      ...(opts.engagementId ? { engagement_id: opts.engagementId } : {}),
+      include_narratives: opts.includeNarratives ?? false,
+      ...(opts.weights ? { weights: opts.weights } : {}),
+    }),
+  }).then((r) => handle<EngagementReportResponse>(r));
+}
+
 export function exportChain(
   nodeIds: string[],
   format: "markdown" | "json",

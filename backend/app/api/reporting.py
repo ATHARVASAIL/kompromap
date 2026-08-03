@@ -5,7 +5,23 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.schemas.reporting import ChainRequest, ExportRequest, ExportResponse, NarrativeResponse
+from app.models import Engagement
+from app.services.engagement_report import build_engagement_report
+from app.services.engagements import resolve_engagement_id
+from app.services.report_render import (
+    render_html,
+    render_json,
+    render_markdown as render_report_markdown,
+)
+from app.services.scoring import DEFAULT_WEIGHTS, ScoringWeights
+from app.schemas.reporting import (
+    ChainRequest,
+    EngagementReportRequest,
+    EngagementReportResponse,
+    ExportRequest,
+    ExportResponse,
+    NarrativeResponse,
+)
 from app.services.reporting import (
     ChainResolutionError,
     build_chain_export,
@@ -54,3 +70,40 @@ def export_chain(payload: ExportRequest, db: Session = Depends(get_db)):
         narrative_source="llm" if used_llm else "template",
         data=data,
     )
+
+
+@router.post("/engagement", response_model=EngagementReportResponse)
+def engagement_report(
+    payload: EngagementReportRequest,
+    db: Session = Depends(get_db),
+):
+    """Full engagement report — every finding, every chain, scope inventory,
+    prioritised remediation and the report's own caveats.
+
+    `format` picks the deliverable:
+      * `json`     — structured, for further processing
+      * `markdown` — paste into an existing report template
+      * `html`     — self-contained page that prints straight to PDF
+    """
+    engagement_id = resolve_engagement_id(db, payload.engagement_id)
+    engagement = db.get(Engagement, engagement_id)
+    if engagement is None:
+        raise HTTPException(404, "Engagement not found")
+
+    weights = (
+        ScoringWeights(**payload.weights.model_dump(exclude_none=True))
+        if payload.weights
+        else DEFAULT_WEIGHTS
+    )
+
+    report = build_engagement_report(
+        db, engagement, weights, include_narratives=payload.include_narratives
+    )
+
+    if payload.format == "markdown":
+        return EngagementReportResponse(
+            format="markdown", content=render_report_markdown(report)
+        )
+    if payload.format == "html":
+        return EngagementReportResponse(format="html", content=render_html(report))
+    return EngagementReportResponse(format="json", data=render_json(report))

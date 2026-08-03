@@ -2,6 +2,7 @@ import cytoscape, { type Core, type ElementDefinition, type NodeSingular } from 
 import { useEffect, useRef, useState } from "react";
 import { edgeTypeStyle } from "../styles/edgeTokens";
 import { nodeIconDataUri } from "../graph/nodeIcons";
+import { DEFAULT_LAYOUT, getLayout, type LayoutName } from "../graph/layouts";
 import { colors, nodeTypeShape } from "../styles/tokens";
 import { EDGE_TYPE_LABELS, NODE_TYPE_COLOR, type EdgeType, type GraphResponse, type NodeType } from "../types/graph";
 
@@ -16,6 +17,10 @@ interface GraphCanvasProps {
   /** Case-insensitive substring match against node labels — highlights
    * matches and dims everything else, same visual language as hover. */
   searchQuery?: string;
+  /** Which layout algorithm to arrange the graph with. */
+  layout?: LayoutName;
+  /** Fired on right-click / long-press of a node. */
+  onNodeContextMenu?: (nodeId: string, position: { x: number; y: number }) => void;
 }
 
 const PULSE_STEP_MS = 160;
@@ -187,21 +192,43 @@ function buildStylesheet(): cytoscape.StylesheetJson {
       selector: ".search-dim",
       style: { opacity: 0.15 },
     },
+    {
+      // Subtle marker that a node was placed by hand rather than the layout.
+      selector: "node.pinned",
+      style: { "border-style": "double" },
+    },
   ];
 }
 
-export default function GraphCanvas({ graph, selectedNodeId, onSelectNode, highlightedPath, searchQuery }: GraphCanvasProps) {
+export default function GraphCanvas({
+  graph,
+  selectedNodeId,
+  onSelectNode,
+  highlightedPath,
+  searchQuery,
+  layout = DEFAULT_LAYOUT,
+  onNodeContextMenu,
+}: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const onSelectNodeRef = useRef(onSelectNode);
   const hasActivePathRef = useRef(false);
   const hasActiveSearchRef = useRef(false);
   const pulseTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Positions the user has dragged by hand. Layout re-runs restore these
+  // rather than discarding deliberate manual arrangement.
+  const pinnedPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const layoutRef = useRef<LayoutName>(layout);
+  const onContextRef = useRef(onNodeContextMenu);
   const [zoomPct, setZoomPct] = useState(100);
 
   useEffect(() => {
     onSelectNodeRef.current = onSelectNode;
   }, [onSelectNode]);
+
+  useEffect(() => {
+    onContextRef.current = onNodeContextMenu;
+  }, [onNodeContextMenu]);
 
   // Create the Cytoscape instance exactly once. Every subsequent graph
   // update diffs into this same instance (see the effect below) instead of
@@ -235,6 +262,19 @@ export default function GraphCanvas({ graph, selectedNodeId, onSelectNode, highl
     cy.on("mouseout", "node", () => {
       if (hasActivePathRef.current || hasActiveSearchRef.current) return;
       cy.elements().removeClass("hover-dim hover-related");
+    });
+
+    // Record hand-placed positions so later layout runs don't undo them.
+    cy.on("dragfree", "node", (evt) => {
+      const n = evt.target as NodeSingular;
+      pinnedPositionsRef.current.set(n.id(), { ...n.position() });
+      n.addClass("pinned");
+    });
+
+    cy.on("cxttap", "node", (evt) => {
+      const n = evt.target as NodeSingular;
+      const pos = evt.renderedPosition ?? { x: 0, y: 0 };
+      onContextRef.current?.(n.id(), { x: pos.x, y: pos.y });
     });
 
     cy.on("zoom", () => setZoomPct(Math.round(cy.zoom() * 100)));
@@ -292,15 +332,29 @@ export default function GraphCanvas({ graph, selectedNodeId, onSelectNode, highl
     // difference between ~1.6s and ~0.4s on a few-hundred-node graph
     // (verified against a synthetic 400-node/700-edge graph, since the
     // spec's stated real-world scale is "hundreds, not millions").
+    // Nodes the user has dragged are pinned — re-running a layout would
+    // otherwise throw away deliberate manual arrangement, which is
+    // infuriating on a graph someone has spent time tidying.
+    const pinned = pinnedPositionsRef.current;
+    const entryPointIds = graph.nodes.filter((n) => n.is_entry_point).map((n) => n.id);
+    const def = getLayout(layoutRef.current);
+    const opts = def.build(entryPointIds);
+
     cy.layout({
-      name: "cose",
-      animate: true,
+      ...opts,
       animationDuration: LAYOUT_DURATION_MS,
-      randomize: isFirstLoad,
       fit: isFirstLoad,
-      padding: 48,
-      ...(isFirstLoad ? {} : { numIter: 100 }),
-    }).run();
+      ...(def.id === "cose" ? { randomize: isFirstLoad } : {}),
+    } as never).run();
+
+    if (pinned.size) {
+      cy.batch(() => {
+        pinned.forEach((pos, id) => {
+          const n = cy.getElementById(id);
+          if (n.nonempty()) n.position(pos);
+        });
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph]);
 
@@ -310,6 +364,22 @@ export default function GraphCanvas({ graph, selectedNodeId, onSelectNode, highl
     cy.nodes().unselect();
     if (selectedNodeId) cy.getElementById(selectedNodeId).select();
   }, [selectedNodeId]);
+
+  // Switching layout is an explicit request to rearrange, so it clears
+  // pinned positions — keeping them would produce a half-applied layout
+  // that looks broken rather than intentional.
+  useEffect(() => {
+    layoutRef.current = layout;
+    const cy = cyRef.current;
+    if (!cy || cy.elements().length === 0) return;
+
+    pinnedPositionsRef.current.clear();
+    cy.nodes().removeClass("pinned");
+
+    const entryPointIds = cy.nodes().filter((n) => n.data("is_entry_point")).map((n) => n.id());
+    const def = getLayout(layout);
+    cy.layout({ ...def.build(entryPointIds), fit: true } as never).run();
+  }, [layout]);
 
   // Sequential "pulse" down the winning chain rather than an instant color
   // swap: each node/edge in path order lights up PULSE_STEP_MS after the

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.graph import _node_label
 from app.core.db import get_db
-from app.models import Edge, Node, NodeType
+from app.models import Edge, Finding, Node, NodeType
 from app.schemas.pathfind import (
     PathEdge,
     PathfindBestResponse,
@@ -21,6 +21,7 @@ from app.schemas.pathfind import (
     PathfindRequest,
     PathNode,
     PathResultResponse,
+    ScoreBreakdownResponse,
     ScoringWeightsInput,
 )
 from app.services.pathfinding import (
@@ -29,7 +30,7 @@ from app.services.pathfinding import (
     find_best_paths_report,
 )
 from app.services.engagements import resolve_engagement_id
-from app.services.scoring import ScoringWeights
+from app.services.scoring import ScoringWeights, edge_cost, score_finding
 
 router = APIRouter(prefix="/pathfind", tags=["pathfind"])
 
@@ -45,25 +46,69 @@ def _to_scoring_weights(w: ScoringWeightsInput) -> ScoringWeights:
 
 
 def _to_path_node(node: Node) -> PathNode:
-    return PathNode(id=node.id, node_type=NodeType(node.node_type), label=_node_label(node))
+    return PathNode(
+        id=node.id,
+        node_type=NodeType(node.node_type),
+        label=_node_label(node),
+        cvss_score=getattr(node, "cvss_score", None),
+        cvss_vector=getattr(node, "cvss_vector", None),
+        is_entry_point=node.is_entry_point,
+        is_crown_jewel=node.is_crown_jewel,
+    )
 
 
-def _to_path_result(p) -> PathResultResponse:
-    return PathResultResponse(
-        entry_point=_to_path_node(p.entry_point),
-        crown_jewel=_to_path_node(p.crown_jewel),
-        total_cost=p.total_cost,
-        nodes=[_to_path_node(n) for n in p.nodes],
-        edges=[
+def _to_breakdown(node: Node, weights: ScoringWeights) -> ScoreBreakdownResponse | None:
+    """Score reasoning for an exploitation step. None for structural edges."""
+    if not isinstance(node, Finding):
+        return None
+    b = score_finding(node, weights)
+    return ScoreBreakdownResponse(
+        ease_score=b.ease_score,
+        normalized_cvss=b.normalized_cvss,
+        exploit_public=b.exploit_public,
+        unauthenticated=b.unauthenticated,
+        complexity=b.complexity,
+        complexity_measured=b.complexity_is_measured,
+        contributions=b.contributions,
+    )
+
+
+def _to_path_result(p, weights: ScoringWeights) -> PathResultResponse:
+    """Build the response, recomputing each edge's cost through the *same*
+    edge_cost() Dijkstra used.
+
+    This previously did `1 - e.weight`, which only reflected a manual
+    override and reported 0.0 for every computed edge — so the per-step
+    costs shown in the UI didn't add up to the total cost that produced the
+    ranking. Reusing edge_cost() keeps the explanation honest.
+    """
+    nodes_by_id = {n.id: n for n in p.nodes}
+
+    edges = []
+    for e in p.edges:
+        source = nodes_by_id.get(e.source_node_id)
+        cost = edge_cost(e, source, weights) if source is not None else 0.0
+        edges.append(
             PathEdge(
                 id=e.id,
                 source=e.source_node_id,
                 target=e.target_node_id,
                 edge_type=e.edge_type,
-                cost=1.0 - e.weight if e.weight is not None else 0.0,
+                cost=cost,
+                breakdown=_to_breakdown(source, weights) if source is not None else None,
             )
-            for e in p.edges
-        ],
+        )
+
+    exploit_steps = [e for e in edges if e.breakdown is not None]
+
+    return PathResultResponse(
+        entry_point=_to_path_node(p.entry_point),
+        crown_jewel=_to_path_node(p.crown_jewel),
+        total_cost=p.total_cost,
+        exploit_step_count=len(exploit_steps),
+        hardest_step_cost=max((e.cost for e in edges), default=0.0),
+        nodes=[_to_path_node(n) for n in p.nodes],
+        edges=edges,
     )
 
 
@@ -101,12 +146,11 @@ def pathfind_best(payload: PathfindRequest, db: Session = Depends(get_db)):
             422, "No crown jewels found — tag at least one node is_crown_jewel, or pass crown_jewel_ids"
         )
 
-    report = find_best_paths_report(
-        all_nodes, all_edges, entry_points, crown_jewels, _to_scoring_weights(payload.weights)
-    )
+    weights = _to_scoring_weights(payload.weights)
+    report = find_best_paths_report(all_nodes, all_edges, entry_points, crown_jewels, weights)
 
     return PathfindBestResponse(
-        paths=[_to_path_result(p) for p in report.paths],
+        paths=[_to_path_result(p, weights) for p in report.paths],
         unreachable_entry_points=[_to_path_node(n) for n in report.unreachable_entry_points],
     )
 
@@ -141,6 +185,6 @@ def pathfind_from_entry_point(
     unreachable = [cj for cj in crown_jewels if cj.id not in reached_ids]
 
     return PathfindFromResponse(
-        paths=[_to_path_result(p) for p in results],
+        paths=[_to_path_result(p, weights) for p in results],
         unreachable_crown_jewels=[_to_path_node(cj) for cj in unreachable],
     )

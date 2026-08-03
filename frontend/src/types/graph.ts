@@ -73,6 +73,22 @@ export interface PathNode {
   id: string;
   node_type: NodeType;
   label: string;
+  cvss_score?: number | null;
+  cvss_vector?: string | null;
+  is_entry_point?: boolean;
+  is_crown_jewel?: boolean;
+}
+
+/** Why a finding scored as it did — every weighted term, plus whether
+ *  complexity was measured from a CVSS vector or assumed. */
+export interface ScoreBreakdown {
+  ease_score: number;
+  normalized_cvss: number;
+  exploit_public: number;
+  unauthenticated: number;
+  complexity: number;
+  complexity_measured: boolean;
+  contributions: Record<string, number>;
 }
 
 export interface PathEdgeResult {
@@ -81,12 +97,18 @@ export interface PathEdgeResult {
   target: string;
   edge_type: EdgeType;
   cost: number;
+  /** Present only on exploitation steps; structural edges are free. */
+  breakdown?: ScoreBreakdown | null;
 }
 
 export interface PathResult {
   entry_point: PathNode;
   crown_jewel: PathNode;
   total_cost: number;
+  /** Edges that are real exploitation steps, not structural links. */
+  exploit_step_count?: number;
+  /** Cost of the chain's most expensive edge — its bottleneck. */
+  hardest_step_cost?: number;
   nodes: PathNode[];
   edges: PathEdgeResult[];
 }

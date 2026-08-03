@@ -71,7 +71,7 @@ def get_dashboard(engagement_id: uuid.UUID, db: Session = Depends(get_db)):
         report = find_best_paths_report(nodes, edges, entry_points, crown_jewels, DEFAULT_WEIGHTS)
         paths_count = len(report.paths)
         if report.paths:
-            highest_ease_chain = _to_path_result(report.paths[0])  # already sorted cheapest-first
+            highest_ease_chain = _to_path_result(report.paths[0], DEFAULT_WEIGHTS)  # already sorted cheapest-first
 
     return DashboardResponse(
         total_nodes=len(nodes),

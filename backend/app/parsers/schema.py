@@ -60,6 +60,9 @@ class ParsedFinding:
     cwe: str | None = None
     owasp_category: str | None = None
     cvss_score: float | None = None
+    # Full CVSS v3 vector when the tool provides one — lets scoring derive
+    # real Attack Complexity instead of a placeholder. See services/cvss.py.
+    cvss_vector: str | None = None
     exploit_public: bool = False
     auth_required: bool = True
     evidence: str | None = None

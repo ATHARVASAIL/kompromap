@@ -61,6 +61,11 @@ def parse_nuclei_json(source: str | bytes | Path) -> ParseResult:
         if cvss_score is None:
             cvss_score = _SEVERITY_SCORE_FALLBACK.get(severity, 0.0)
 
+        # Nuclei emits the full vector as `cvss-metrics` when the template
+        # carries CVSS metadata. This is what makes real complexity scoring
+        # possible rather than a flat default for every finding.
+        cvss_vector = classification.get("cvss-metrics")
+
         cwe_list = classification.get("cwe-id") or []
         cwe = cwe_list[0] if cwe_list else None
 
@@ -77,14 +82,29 @@ def parse_nuclei_json(source: str | bytes | Path) -> ParseResult:
                 cwe=cwe,
                 owasp_category=None,
                 cvss_score=float(cvss_score),
+                cvss_vector=cvss_vector,
                 exploit_public=severity in ("high", "critical"),
-                auth_required=_DEFAULT_AUTH_REQUIRED,
+                # When the vector tells us Privileges Required, believe it
+                # over the conservative default — PR:N means genuinely
+                # unauthenticated, which materially changes path ranking.
+                auth_required=_auth_required_from_vector(cvss_vector),
                 evidence="; ".join(evidence_parts),
                 status="open",
             )
         )
 
     return result
+
+
+def _auth_required_from_vector(vector: str | None) -> bool:
+    """Derive auth_required from the CVSS vector's Privileges Required
+    field when present, else fall back to the conservative default."""
+    from app.services.cvss import parse_cvss_vector
+
+    parsed = parse_cvss_vector(vector)
+    if parsed is not None and parsed.privileges_required:
+        return not parsed.is_unauthenticated
+    return _DEFAULT_AUTH_REQUIRED
 
 
 def _load_records(source: str | bytes | Path, result: ParseResult) -> list[dict]:

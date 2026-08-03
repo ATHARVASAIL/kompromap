@@ -10,6 +10,7 @@ import FindingsPage from "./FindingsPage";
 import GraphSection from "./GraphSection";
 import ImportPage from "./ImportPage";
 import PathAnalysisPage from "./PathAnalysisPage";
+import ReportPage from "./ReportPage";
 import type { Engagement, GraphFilters, GraphResponse, PathResult } from "../types/graph";
 
 export default function AppShell() {
@@ -109,6 +110,7 @@ export default function AppShell() {
     { id: "go-graph", label: "Go to Graph", action: () => setSection("graph") },
     { id: "go-findings", label: "Go to Findings", action: () => setSection("findings") },
     { id: "go-pathfind", label: "Go to Path Analysis", keywords: "attack chain", action: () => setSection("pathfind") },
+    { id: "go-report", label: "Go to Report", keywords: "export pdf markdown deliverable", action: () => setSection("report") },
     { id: "go-dashboard", label: "Go to Dashboard", keywords: "stats overview", action: () => setSection("dashboard") },
     { id: "go-import", label: "Go to Import", keywords: "nmap nuclei amass burp upload", action: () => setSection("import") },
     { id: "new-node", label: "Create node", hint: "+ node", action: () => setShowCreateNode(true) },
@@ -136,7 +138,7 @@ export default function AppShell() {
       />
 
       <div className="relative flex-1 overflow-hidden">
-        {!engagement && engagementError && (section === "dashboard" || section === "import") && (
+        {!engagement && engagementError && (section === "dashboard" || section === "import" || section === "report") && (
           <div className="flex h-full items-center justify-center p-8">
             <div className="max-w-sm space-y-3">
               <ErrorBanner message={`Couldn't load engagement: ${engagementError}`} />
@@ -175,6 +177,10 @@ export default function AppShell() {
 
         {section === "pathfind" && (
           <PathAnalysisPage graph={graph} highlightedPath={highlightedPath} onSelectPath={setHighlightedPath} />
+        )}
+
+        {section === "report" && engagement && (
+          <ReportPage engagementId={engagement.id} engagementName={engagement.name} />
         )}
 
         {section === "dashboard" && engagement && (

@@ -40,10 +40,41 @@ class PathfindRequest(BaseModel):
     weights: ScoringWeightsInput = Field(default_factory=ScoringWeightsInput)
 
 
+class ScoreBreakdownResponse(BaseModel):
+    """Why a finding scored the way it did.
+
+    Path-finding previously returned an opaque total cost, which made the
+    most obvious question — "why is this chain ranked above that one?" —
+    unanswerable from the UI. Each weighted term is now returned
+    separately, along with whether complexity was measured from a real
+    CVSS vector or assumed from the configured default.
+    """
+
+    ease_score: float
+    normalized_cvss: float
+    exploit_public: float
+    unauthenticated: float
+    complexity: float
+    complexity_measured: bool = Field(
+        description="True when complexity came from a CVSS vector rather than the fallback. "
+        "The UI distinguishes these — presenting an assumed value with the same "
+        "confidence as a measured one would be misleading."
+    )
+    contributions: dict[str, float] = Field(
+        description="Per-term contribution after weighting. Sums to ease_score."
+    )
+
+
 class PathNode(BaseModel):
     id: uuid.UUID
     node_type: NodeType
     label: str
+    # Populated for Finding nodes so the UI can show severity inline on a
+    # path without a second round-trip per node.
+    cvss_score: float | None = None
+    cvss_vector: str | None = None
+    is_entry_point: bool = False
+    is_crown_jewel: bool = False
 
 
 class PathEdge(BaseModel):
@@ -52,12 +83,26 @@ class PathEdge(BaseModel):
     target: uuid.UUID
     edge_type: EdgeType
     cost: float
+    # Only exploitation steps (YIELDS from a Finding) carry a computed
+    # score; structural edges are free and leave this null.
+    breakdown: ScoreBreakdownResponse | None = None
 
 
 class PathResultResponse(BaseModel):
     entry_point: PathNode
     crown_jewel: PathNode
     total_cost: float
+    exploit_step_count: int = Field(
+        default=0,
+        description="How many edges in this chain are actual exploitation steps "
+        "rather than structural links. A 7-hop chain with 2 exploits is easier "
+        "than a 3-hop chain with 3.",
+    )
+    hardest_step_cost: float = Field(
+        default=0.0,
+        description="Cost of the single most expensive edge — the chain's bottleneck, "
+        "and usually the most useful thing to remediate.",
+    )
     nodes: list[PathNode]
     edges: list[PathEdge]
 

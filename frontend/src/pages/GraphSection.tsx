@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import CreateEdgeModal from "../components/CreateEdgeModal";
 import CreateNodeModal from "../components/CreateNodeModal";
 import DetailPanel from "../components/DetailPanel";
@@ -6,6 +6,11 @@ import EmptyGraphState from "../components/EmptyGraphState";
 import ErrorBanner from "../components/ErrorBanner";
 import FilterBar from "../components/FilterBar";
 import GraphCanvas from "../components/GraphCanvas";
+import LayoutSwitcher from "../components/LayoutSwitcher";
+import NodeContextMenu, { type ContextMenuAction } from "../components/NodeContextMenu";
+import { DEFAULT_LAYOUT, type LayoutName } from "../graph/layouts";
+import { deleteNode, updateNode } from "../api/client";
+import { useToast } from "../components/toastContext";
 import type { GraphFilters, GraphResponse, PathResult } from "../types/graph";
 
 interface GraphSectionProps {
@@ -45,7 +50,61 @@ export default function GraphSection({
   onCloseCreateEdge,
   onGoToImport,
 }: GraphSectionProps) {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [layout, setLayout] = useState<LayoutName>(DEFAULT_LAYOUT);
+  const [menu, setMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null);
+
+  const handleContextMenu = useCallback((nodeId: string, pos: { x: number; y: number }) => {
+    setMenu({ nodeId, x: pos.x, y: pos.y });
+  }, []);
+
+  const menuNode = menu ? graph.nodes.find((n) => n.id === menu.nodeId) : null;
+
+  async function toggleFlag(nodeId: string, flag: "is_entry_point" | "is_crown_jewel", next: boolean) {
+    try {
+      await updateNode(nodeId, { [flag]: next });
+      toast(
+        flag === "is_entry_point"
+          ? next ? "Tagged as entry point" : "Entry point tag removed"
+          : next ? "Tagged as crown jewel" : "Crown jewel tag removed",
+      );
+      onNodeChanged();
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  }
+
+  const menuActions: ContextMenuAction[] = menuNode
+    ? [
+        { id: "open", label: "Open details", onSelect: () => onSelectNode(menuNode.id) },
+        {
+          id: "entry",
+          label: menuNode.is_entry_point ? "Remove entry point" : "Mark as entry point",
+          onSelect: () => toggleFlag(menuNode.id, "is_entry_point", !menuNode.is_entry_point),
+        },
+        {
+          id: "jewel",
+          label: menuNode.is_crown_jewel ? "Remove crown jewel" : "Mark as crown jewel",
+          onSelect: () => toggleFlag(menuNode.id, "is_crown_jewel", !menuNode.is_crown_jewel),
+        },
+        {
+          id: "delete",
+          label: "Delete node",
+          destructive: true,
+          onSelect: async () => {
+            if (!confirm(`Delete "${menuNode.label}"? This can't be undone.`)) return;
+            try {
+              await deleteNode(menuNode.id);
+              toast("Node deleted");
+              onNodeChanged();
+            } catch (e) {
+              toast(String(e), "error");
+            }
+          },
+        },
+      ]
+    : [];
 
   const highlight = highlightedPath
     ? {
@@ -59,6 +118,7 @@ export default function GraphSection({
       <div className="flex items-center justify-between border-b border-border bg-surface-1 px-4 py-2">
         <h1 className="font-sans text-sm font-medium text-text-primary">Graph</h1>
         <div className="flex items-center gap-2 font-mono text-xs">
+          <LayoutSwitcher value={layout} onChange={setLayout} />
           <input
             data-shortcut-search
             value={searchQuery}
@@ -104,9 +164,21 @@ export default function GraphSection({
               onSelectNode={onSelectNode}
               highlightedPath={highlight}
               searchQuery={searchQuery}
+              layout={layout}
+              onNodeContextMenu={handleContextMenu}
             />
           )}
         </div>
+
+        {menu && menuNode && (
+          <NodeContextMenu
+            x={menu.x}
+            y={menu.y}
+            title={menuNode.label}
+            actions={menuActions}
+            onClose={() => setMenu(null)}
+          />
+        )}
 
         {selectedNodeId && (
           <DetailPanel

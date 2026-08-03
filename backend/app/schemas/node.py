@@ -252,6 +252,12 @@ class FindingCreate(NodeCommon):
     # corrupt severity banding (styles/tokens.ts severityFromCvss) and the
     # path-finding ease score, which normalizes by dividing by 10.
     cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cvss_vector: str | None = Field(
+        default=None,
+        max_length=128,
+        description="CVSS v3 vector, e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H. "
+        "When present, real Attack Complexity is used instead of the default.",
+    )
     exploit_public: bool = False
     auth_required: bool = True
     evidence: str | None = None
@@ -263,6 +269,7 @@ class FindingUpdate(BaseModel):
     cwe: str | None = None
     owasp_category: str | None = None
     cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cvss_vector: str | None = Field(default=None, max_length=128)
     exploit_public: bool | None = None
     auth_required: bool | None = None
     evidence: str | None = None
@@ -278,6 +285,7 @@ class FindingRead(NodeReadCommon):
     cwe: str | None
     owasp_category: str | None
     cvss_score: float | None
+    cvss_vector: str | None
     exploit_public: bool
     auth_required: bool
     evidence: str | None

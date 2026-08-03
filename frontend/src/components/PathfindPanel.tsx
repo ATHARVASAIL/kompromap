@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { exportChain, findBestPaths, findPathsFromEntryPoint, generateNarrative } from "../api/client";
 import EmptyState from "./EmptyState";
+import ScoreExplainer from "./ScoreExplainer";
+import ScoringWeightsPanel from "./ScoringWeightsPanel";
+import { DEFAULT_WEIGHTS } from "./scoringDefaults";
 import ErrorBanner from "./ErrorBanner";
 import Spinner from "./Spinner";
 import { useToast } from "./toastContext";
-import { EDGE_TYPE_LABELS, NODE_TYPE_COLOR, type GraphNode, type PathResult } from "../types/graph";
+import {
+  EDGE_TYPE_LABELS,
+  NODE_TYPE_COLOR,
+  type GraphNode,
+  type PathResult,
+  type ScoringWeights,
+} from "../types/graph";
 
 interface PathfindPanelProps {
   entryPoints: GraphNode[];
@@ -31,6 +40,7 @@ export default function PathfindPanel({
 }: PathfindPanelProps) {
   const { toast } = useToast();
   const [scope, setScope] = useState<"all" | string>("all");
+  const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
   const [paths, setPaths] = useState<PathResult[] | null>(null);
   const [unreachableCount, setUnreachableCount] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -52,12 +62,12 @@ export default function PathfindPanel({
     onSelectPath(null);
     try {
       if (scope === "all") {
-        const res = await findBestPaths();
+        const res = await findBestPaths(weights);
         setPaths(res.paths);
         setUnreachableCount(res.unreachable_entry_points.length);
         toast(`Path computed — ${res.paths.length} result${res.paths.length === 1 ? "" : "s"}`, "success");
       } else {
-        const res = await findPathsFromEntryPoint(scope);
+        const res = await findPathsFromEntryPoint(scope, weights);
         setPaths(res.paths);
         setUnreachableCount(res.unreachable_crown_jewels.length);
         toast(`Path computed — ${res.paths.length} result${res.paths.length === 1 ? "" : "s"}`, "success");
@@ -162,6 +172,13 @@ export default function PathfindPanel({
         {error && <ErrorBanner message={error} />}
       </div>
 
+      <ScoringWeightsPanel
+        weights={weights}
+        onChange={setWeights}
+        onApply={run}
+        busy={loading}
+      />
+
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {paths === null ? (
           <EmptyState message="No results yet." />
@@ -189,25 +206,72 @@ export default function PathfindPanel({
                   <span className="text-text-tertiary">→</span>
                   <span>{p.crown_jewel.label}</span>
                 </div>
-                <div className="text-text-tertiary">
-                  cost {p.total_cost.toFixed(2)} · {p.nodes.length} nodes
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-text-tertiary">
+                  <span className="tabular-nums">cost {p.total_cost.toFixed(2)}</span>
+                  <span aria-hidden>·</span>
+                  <span className="tabular-nums">{p.nodes.length} nodes</span>
+                  {typeof p.exploit_step_count === "number" && (
+                    <>
+                      <span aria-hidden>·</span>
+                      {/* Hop count alone misleads: a long chain of free
+                          structural links is easier than a short one of
+                          hard exploits. */}
+                      <span className="tabular-nums text-severity-high">
+                        {p.exploit_step_count} exploit
+                        {p.exploit_step_count === 1 ? "" : "s"}
+                      </span>
+                    </>
+                  )}
                 </div>
+
                 {selectedIndex === i && (
-                  <div className="mt-2 space-y-1 border-t border-border pt-2">
-                    {p.nodes.map((n, ni) => (
-                      <div key={n.id} className="flex items-center gap-1.5 text-text-tertiary">
-                        <span
-                          className="inline-block h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: NODE_TYPE_COLOR[n.node_type] }}
-                        />
-                        <span className="truncate">{n.label}</span>
-                        {ni < p.edges.length && (
-                          <span className="ml-auto shrink-0 text-text-tertiary">
-                            {EDGE_TYPE_LABELS[p.edges[ni].edge_type]} →
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                  <div className="mt-2.5 space-y-2 border-t border-border pt-2.5">
+                    {/* Step-by-step chain with the cost of each hop */}
+                    <div className="space-y-1">
+                      {p.nodes.map((n, ni) => {
+                        const incoming = ni > 0 ? p.edges[ni - 1] : null;
+                        return (
+                          <div key={n.id}>
+                            {incoming && (
+                              <div className="flex items-center gap-1.5 py-0.5 pl-[3px] text-[10px] text-text-tertiary">
+                                <span className="text-border-strong" aria-hidden>│</span>
+                                <span>{EDGE_TYPE_LABELS[incoming.edge_type]}</span>
+                                {incoming.cost > 0 && (
+                                  <span className="tabular-nums text-severity-high">
+                                    +{incoming.cost.toFixed(3)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: NODE_TYPE_COLOR[n.node_type] }}
+                              />
+                              <span className="truncate text-text-secondary">{n.label}</span>
+                              {n.cvss_score != null && (
+                                <span className="ml-auto shrink-0 tabular-nums text-text-tertiary">
+                                  CVSS {n.cvss_score}
+                                </span>
+                              )}
+                              {n.is_crown_jewel && (
+                                <span className="ml-auto shrink-0 text-severity-critical">◆</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Why the bottleneck step costs what it does */}
+                    {(() => {
+                      const worst = p.edges
+                        .filter((e) => e.breakdown)
+                        .sort((a, b) => b.cost - a.cost)[0];
+                      return worst?.breakdown ? (
+                        <ScoreExplainer breakdown={worst.breakdown} cost={worst.cost} />
+                      ) : null;
+                    })()}
                   </div>
                 )}
               </button>
