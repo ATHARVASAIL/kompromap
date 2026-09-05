@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import networkx as nx
 
 from app.models import Edge, Node
 from app.services.scoring import IMPASSABLE, ScoringWeights, edge_cost
-
 
 if TYPE_CHECKING:  # pragma: no cover - type hint only
     from sqlalchemy.orm import Session
