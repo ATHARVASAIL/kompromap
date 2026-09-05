@@ -40,6 +40,7 @@ _TYPE_PROPERTIES: dict[NodeType, tuple[str, ...]] = {
         "owasp_category",
         "cvss_score",
         "cvss_vector",
+        "verification_status",
         "exploit_public",
         "auth_required",
         "status",

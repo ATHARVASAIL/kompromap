@@ -33,7 +33,17 @@ class Settings(BaseSettings):
     # see app/core/security.py and DEPLOYMENT.md.
     api_key: str | None = None
 
-    # Optional: Anthropic API key for narrative generation
+    # --- AI ---------------------------------------------------------
+    # Which provider backs AI features. "none" disables them explicitly;
+    # anthropic falls back to disabled when no key is present. The app
+    # never imports a vendor SDK outside services/ai/provider.py.
+    ai_provider: str = "anthropic"
+    ai_timeout_seconds: float = 60.0
+    ai_max_retries: int = 1
+    ai_max_tokens: int = 2000
+
+    # Optional: Anthropic API key for narrative generation and AI triage.
+    # Server-side only — never sent to the frontend.
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-5"
 

@@ -12,6 +12,8 @@ from app.services.report_render import (
     render_html,
     render_json,
     render_markdown as render_report_markdown,
+    render_docx,
+    render_pdf,
 )
 from app.services.scoring import DEFAULT_WEIGHTS, ScoringWeights
 from app.schemas.reporting import (
@@ -81,9 +83,11 @@ def engagement_report(
     prioritised remediation and the report's own caveats.
 
     `format` picks the deliverable:
-      * `json`     — structured, for further processing
-      * `markdown` — paste into an existing report template
-      * `html`     — self-contained page that prints straight to PDF
+      * `json`      — structured, for further processing
+      * `markdown`  — paste into an existing report template
+      * `html`      — self-contained page that prints straight to PDF
+      * `docx`      — Word document for tracked-change review
+      * `pdf`       — PDF via WeasyPrint (falls back to HTML if deps missing)
     """
     engagement_id = resolve_engagement_id(db, payload.engagement_id)
     engagement = db.get(Engagement, engagement_id)
@@ -106,4 +110,22 @@ def engagement_report(
         )
     if payload.format == "html":
         return EngagementReportResponse(format="html", content=render_html(report))
+    if payload.format == "docx":
+        docx_bytes = render_docx(report)
+        from fastapi.responses import Response
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": 'attachment; filename="report.docx"'},
+        )
+    if payload.format == "pdf":
+        pdf_bytes, pdf_fmt = render_pdf(report)
+        from fastapi.responses import Response
+        media = "application/pdf" if pdf_fmt == "pdf" else "text/html"
+        filename = "report.pdf" if pdf_fmt == "pdf" else "report.html"
+        return Response(
+            content=pdf_bytes,
+            media_type=media,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     return EngagementReportResponse(format="json", data=render_json(report))

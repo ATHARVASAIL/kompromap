@@ -42,6 +42,9 @@ def _to_scoring_weights(w: ScoringWeightsInput) -> ScoringWeights:
         auth_required=w.auth_required,
         complexity=w.complexity,
         default_complexity=w.default_complexity,
+        asset_criticality=w.asset_criticality,
+        data_sensitivity=w.data_sensitivity,
+        exposure_factor=w.exposure_factor,
     )
 
 
@@ -57,11 +60,13 @@ def _to_path_node(node: Node) -> PathNode:
     )
 
 
-def _to_breakdown(node: Node, weights: ScoringWeights) -> ScoreBreakdownResponse | None:
+def _to_breakdown(
+    node: Node, weights: ScoringWeights, db: Session | None = None
+) -> ScoreBreakdownResponse | None:
     """Score reasoning for an exploitation step. None for structural edges."""
     if not isinstance(node, Finding):
         return None
-    b = score_finding(node, weights)
+    b = score_finding(node, weights, db)
     return ScoreBreakdownResponse(
         ease_score=b.ease_score,
         normalized_cvss=b.normalized_cvss,
@@ -69,11 +74,14 @@ def _to_breakdown(node: Node, weights: ScoringWeights) -> ScoreBreakdownResponse
         unauthenticated=b.unauthenticated,
         complexity=b.complexity,
         complexity_measured=b.complexity_is_measured,
+        asset_criticality=b.asset_criticality,
+        data_sensitivity=b.data_sensitivity,
+        exposure_factor=b.exposure_factor,
         contributions=b.contributions,
     )
 
 
-def _to_path_result(p, weights: ScoringWeights) -> PathResultResponse:
+def _to_path_result(p, weights: ScoringWeights, db: Session | None = None) -> PathResultResponse:
     """Build the response, recomputing each edge's cost through the *same*
     edge_cost() Dijkstra used.
 
@@ -87,7 +95,7 @@ def _to_path_result(p, weights: ScoringWeights) -> PathResultResponse:
     edges = []
     for e in p.edges:
         source = nodes_by_id.get(e.source_node_id)
-        cost = edge_cost(e, source, weights) if source is not None else 0.0
+        cost = edge_cost(e, source, weights, db) if source is not None else 0.0
         edges.append(
             PathEdge(
                 id=e.id,
@@ -95,7 +103,7 @@ def _to_path_result(p, weights: ScoringWeights) -> PathResultResponse:
                 target=e.target_node_id,
                 edge_type=e.edge_type,
                 cost=cost,
-                breakdown=_to_breakdown(source, weights) if source is not None else None,
+                breakdown=_to_breakdown(source, weights, db) if source is not None else None,
             )
         )
 
@@ -147,7 +155,7 @@ def pathfind_best(payload: PathfindRequest, db: Session = Depends(get_db)):
         )
 
     weights = _to_scoring_weights(payload.weights)
-    report = find_best_paths_report(all_nodes, all_edges, entry_points, crown_jewels, weights)
+    report = find_best_paths_report(all_nodes, all_edges, entry_points, crown_jewels, weights, db)
 
     return PathfindBestResponse(
         paths=[_to_path_result(p, weights) for p in report.paths],
@@ -178,7 +186,7 @@ def pathfind_from_entry_point(
         )
 
     weights = _to_scoring_weights(payload.weights)
-    graph = build_weighted_graph(all_nodes, all_edges, weights)
+    graph = build_weighted_graph(all_nodes, all_edges, weights, db)
     results = best_paths_from_entry_point(graph, nodes_by_id, entry_point, crown_jewels)
 
     reached_ids = {r.crown_jewel.id for r in results}

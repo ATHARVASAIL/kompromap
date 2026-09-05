@@ -14,6 +14,7 @@ from typing import Annotated, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import (
+    VerificationStatus,
     AssetType,
     CredentialType,
     DataClassification,
@@ -255,9 +256,16 @@ class FindingCreate(NodeCommon):
     cvss_vector: str | None = Field(
         default=None,
         max_length=128,
-        description="CVSS v3 vector, e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H. "
+        description="CVSS v3 vector, e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H "
+        "(the CVSS: prefix is optional — Nuclei emits the bare form). "
         "When present, real Attack Complexity is used instead of the default.",
     )
+    verification_status: VerificationStatus = Field(
+        default=VerificationStatus.UNVERIFIED,
+        description="Triage state, set by the analyst. Findings marked false-positive "
+        "are excluded from path-finding.",
+    )
+    verification_note: str | None = None
     exploit_public: bool = False
     auth_required: bool = True
     evidence: str | None = None
@@ -270,6 +278,8 @@ class FindingUpdate(BaseModel):
     owasp_category: str | None = None
     cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
     cvss_vector: str | None = Field(default=None, max_length=128)
+    verification_status: VerificationStatus | None = None
+    verification_note: str | None = None
     exploit_public: bool | None = None
     auth_required: bool | None = None
     evidence: str | None = None
@@ -286,6 +296,8 @@ class FindingRead(NodeReadCommon):
     owasp_category: str | None
     cvss_score: float | None
     cvss_vector: str | None
+    verification_status: VerificationStatus
+    verification_note: str | None
     exploit_public: bool
     auth_required: bool
     evidence: str | None

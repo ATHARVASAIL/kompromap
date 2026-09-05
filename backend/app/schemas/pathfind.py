@@ -12,6 +12,9 @@ class ScoringWeightsInput(BaseModel):
     relative ordering between edges."""
 
     cvss: float = 0.4
+    asset_criticality: float = 0.3
+    data_sensitivity: float = 0.25
+    exposure_factor: float = 0.15
     exploit_public: float = 0.3
     auth_required: float = 0.2
     complexity: float = 0.1
@@ -48,6 +51,12 @@ class ScoreBreakdownResponse(BaseModel):
     unanswerable from the UI. Each weighted term is now returned
     separately, along with whether complexity was measured from a real
     CVSS vector or assumed from the configured default.
+
+    Extended risk factors (Phase 3) are derived from the attack target
+    node — the DataStore, Asset, or Account the finding reaches through
+    a YIELDS edge — rather than the finding itself, because impact is
+    contextual: a finding on a crown jewel with PII is more severe than
+    the same finding on a test server.
     """
 
     ease_score: float
@@ -59,6 +68,15 @@ class ScoreBreakdownResponse(BaseModel):
         description="True when complexity came from a CVSS vector rather than the fallback. "
         "The UI distinguishes these — presenting an assumed value with the same "
         "confidence as a measured one would be misleading."
+    )
+    asset_criticality: float = Field(
+        description="0-1 score derived from the target asset's type and crown-jewel / entry-point tags."
+    )
+    data_sensitivity: float = Field(
+        description="0-1 score derived from the target DataStore's data classification (PCI=1.0, PII=0.8, none=0.1)."
+    )
+    exposure_factor: float = Field(
+        description="0-1 score: 1.0 for entry points, 0.9 for crown jewels, 0.0 otherwise."
     )
     contributions: dict[str, float] = Field(
         description="Per-term contribution after weighting. Sums to ease_score."

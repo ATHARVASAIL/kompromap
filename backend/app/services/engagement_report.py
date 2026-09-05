@@ -82,6 +82,8 @@ class FindingEntry:
     ease_score: float | None = None
     complexity_measured: bool = False
     in_chain: bool = False
+    verification_status: str = "unverified"
+    verification_note: str | None = None
 
 
 @dataclass
@@ -216,6 +218,8 @@ def build_engagement_report(
                 cwe=f.cwe,
                 owasp_category=f.owasp_category,
                 status=f.status,
+                verification_status=getattr(f, "verification_status", "unverified"),
+                verification_note=getattr(f, "verification_note", None),
                 evidence=f.evidence,
                 exploit_public=f.exploit_public,
                 auth_required=f.auth_required,
@@ -263,6 +267,10 @@ def build_engagement_report(
         "easiest_chain_cost": chains[0].total_cost if chains else None,
         "findings_on_a_chain": sum(1 for e in entries if e.in_chain),
         "findings_with_measured_complexity": sum(1 for e in entries if e.complexity_measured),
+        "verification_counts": {
+            status: sum(1 for e in entries if e.verification_status == status)
+            for status in ("unverified", "confirmed", "false-positive", "needs-retest")
+        },
     }
 
     return EngagementReport(
@@ -363,6 +371,30 @@ def _build_caveats(
             "complexity is an assumed default rather than a measured value. Their ease scores "
             "carry correspondingly less confidence."
         )
+
+    confirmed = [e for e in entries if e.verification_status == "confirmed"]
+    false_positives = [e for e in entries if e.verification_status == "false-positive"]
+    unverified = [e for e in entries if e.verification_status == "unverified"]
+    if entries:
+        parts = [
+            f"Verification coverage: {len(confirmed)} of {len(entries)} findings confirmed by "
+            f"manual testing"
+        ]
+        if false_positives:
+            parts.append(f"{len(false_positives)} ruled out as false positives")
+        if unverified:
+            parts.append(f"{len(unverified)} not yet triaged")
+        caveats.append(
+            ". ".join(parts)
+            + ". Untriaged findings come straight from scanner output and have not been "
+            "confirmed to be exploitable; treat their severity ratings as provisional."
+        )
+        if false_positives:
+            caveats.append(
+                f"{len(false_positives)} findings marked false-positive are excluded from "
+                "attack-chain computation, since a chain routed through a finding that "
+                "isn't real would be a fabricated attack path."
+            )
 
     no_evidence = [e for e in entries if not e.evidence]
     if no_evidence:

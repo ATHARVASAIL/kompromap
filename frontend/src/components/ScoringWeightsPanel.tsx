@@ -48,6 +48,21 @@ const TERMS: {
     label: "Attack complexity",
     hint: "Weight for how hard the exploit is. Derived from the CVSS vector when available, otherwise the fallback below.",
   },
+  {
+    key: "asset_criticality",
+    label: "Asset criticality",
+    hint: "Weight for how important the target asset is. Derived from the asset type (cloud_resource > domain > subdomain > ip) and crown-jewel / entry-point tags.",
+  },
+  {
+    key: "data_sensitivity",
+    label: "Data sensitivity",
+    hint: "Weight for how sensitive the data at the target is. PCI > PII > none, based on the DataStore's classification.",
+  },
+  {
+    key: "exposure_factor",
+    label: "Exposure",
+    hint: "Weight for how exposed the target is externally. Entry points are fully exposed; crown jewels are highly exposed even if not internet-facing.",
+  },
 ];
 
 export default function ScoringWeightsPanel({
@@ -59,8 +74,15 @@ export default function ScoringWeightsPanel({
   const [open, setOpen] = useState(false);
 
   const total =
-    weights.cvss + weights.exploit_public + weights.auth_required + weights.complexity;
-  const isDefault = TERMS.every((t) => weights[t.key] === DEFAULT_WEIGHTS[t.key]) &&
+    weights.cvss +
+    weights.exploit_public +
+    weights.auth_required +
+    weights.complexity +
+    weights.asset_criticality +
+    weights.data_sensitivity +
+    weights.exposure_factor;
+  const isDefault =
+    TERMS.every((t) => weights[t.key] === DEFAULT_WEIGHTS[t.key]) &&
     weights.default_complexity === DEFAULT_WEIGHTS.default_complexity;
 
   function set(key: keyof ScoringWeights, value: number) {

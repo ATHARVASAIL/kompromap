@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchGraph, getActiveEngagement } from "../api/client";
 import CommandPalette, { type Command } from "../components/CommandPalette";
+import CorrelationPage from "./CorrelationPage";
 import ErrorBanner from "../components/ErrorBanner";
 import ShortcutsHelp from "../components/ShortcutsHelp";
 import SnapshotPanel from "../components/SnapshotPanel";
 import Sidebar, { type Section } from "../components/Sidebar";
 import DashboardPage from "./DashboardPage";
+import DedupPage from "./DedupPage";
 import FindingsPage from "./FindingsPage";
 import GraphSection from "./GraphSection";
 import ImportPage from "./ImportPage";
 import PathAnalysisPage from "./PathAnalysisPage";
 import ReportPage from "./ReportPage";
+import KnowledgeBasePage from "./KnowledgeBasePage";
 import type { Engagement, GraphFilters, GraphResponse, PathResult } from "../types/graph";
 
 export default function AppShell() {
@@ -109,6 +112,8 @@ export default function AppShell() {
   const commands: Command[] = [
     { id: "go-graph", label: "Go to Graph", action: () => setSection("graph") },
     { id: "go-findings", label: "Go to Findings", action: () => setSection("findings") },
+    { id: "go-knowledge", label: "Go to Knowledge Base", keywords: "cwe reference similarity knowledge", action: () => setSection("knowledge") },
+    { id: "go-correlation", label: "Go to Correlation", keywords: "risk extended target", action: () => setSection("correlation") },
     { id: "go-pathfind", label: "Go to Path Analysis", keywords: "attack chain", action: () => setSection("pathfind") },
     { id: "go-report", label: "Go to Report", keywords: "export pdf markdown deliverable", action: () => setSection("report") },
     { id: "go-dashboard", label: "Go to Dashboard", keywords: "stats overview", action: () => setSection("dashboard") },
@@ -173,7 +178,17 @@ export default function AppShell() {
           />
         )}
 
+        {section === "knowledge" && engagement && (
+          <KnowledgeBasePage />
+        )}
+        {section === "dedup" && engagement && (
+          <DedupPage engagement={engagement} />
+        )}
         {section === "findings" && <FindingsPage onViewInGraph={goToNodeInGraph} />}
+
+        {section === "correlation" && (
+          <CorrelationPage graph={graph} />
+        )}
 
         {section === "pathfind" && (
           <PathAnalysisPage graph={graph} highlightedPath={highlightedPath} onSelectPath={setHighlightedPath} />

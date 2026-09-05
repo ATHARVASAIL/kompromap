@@ -46,3 +46,7 @@ __all__ = [
     "DataClassification",
     "FindingStatus",
 ]
+from app.models.dedup import DedupScan, MergeCandidate
+from app.models.knowledge_base import KnowledgeBaseEntry
+
+__all__ += ["DedupScan", "MergeCandidate", "KnowledgeBaseEntry"]

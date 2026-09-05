@@ -221,6 +221,19 @@ class Finding(Node):
     cwe: Mapped[str | None] = mapped_column(String(32), nullable=True)
     owasp_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
     cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Triage state, distinct from `status` (which tracks remediation).
+    # Findings marked false-positive are excluded from path-finding —
+    # a chain built on an FP is a fabricated attack path.
+    verification_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="unverified", default="unverified"
+    )
+    verification_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Advisory AI triage assessment, stored as validated JSON. Written only
+    # by services/ai/triage.py, which cannot touch any analyst-owned field.
+    # Nullable and ignorable: every feature works without it.
+    ai_assessment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Full CVSS v3 vector (e.g. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H").
     # The score alone is a single number; the vector says *why* — including
     # Attack Complexity, which the ease_score formula needs and which was

@@ -16,7 +16,11 @@ from dataclasses import dataclass, field
 import networkx as nx
 
 from app.models import Edge, Node
-from app.services.scoring import ScoringWeights, edge_cost
+from app.services.scoring import IMPASSABLE, ScoringWeights, edge_cost
+
+
+if TYPE_CHECKING:  # pragma: no cover - type hint only
+    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -35,8 +39,17 @@ class PathfindingReport:
 
 
 def build_weighted_graph(
-    nodes: list[Node], edges: list[Edge], weights: ScoringWeights
+    nodes: list[Node],
+    edges: list[Edge],
+    weights: ScoringWeights,
+    db: "Session | None" = None,
 ) -> nx.DiGraph:
+    """Build a NetworkX graph with edge costs from the scoring service.
+
+    Pass `db` when you want extended risk factors (asset criticality,
+    data sensitivity, exposure) to influence edge costs. Without it,
+    only CVSS-level factors are used.
+    """
     nodes_by_id = {n.id: n for n in nodes}
     g = nx.DiGraph()
     for node in nodes:
@@ -45,7 +58,7 @@ def build_weighted_graph(
         source_node = nodes_by_id.get(edge.source_node_id)
         if source_node is None or edge.target_node_id not in nodes_by_id:
             continue  # edge points outside the filtered node set, skip
-        cost = edge_cost(edge, source_node, weights)
+        cost = edge_cost(edge, source_node, weights, db)
         g.add_edge(edge.source_node_id, edge.target_node_id, cost=cost, edge=edge)
     return g
 
@@ -84,6 +97,8 @@ def best_paths_from_entry_point(
     for cj in crown_jewels:
         if cj.id == entry_point.id or cj.id not in costs:
             continue
+        if costs[cj.id] >= IMPASSABLE_THRESHOLD:
+            continue
         node_path, edge_path = _reconstruct(graph, nodes_by_id, paths[cj.id])
         results.append(
             PathResult(
@@ -109,17 +124,23 @@ def best_path_to_any_crown_jewel(
     return candidates[0] if candidates else None
 
 
+# Anything at or above this is a route through an excluded finding.
+# Half of IMPASSABLE so a chain of several genuine edges can never reach it.
+IMPASSABLE_THRESHOLD = IMPASSABLE / 2
+
+
 def find_best_paths_report(
     nodes: list[Node],
     edges: list[Edge],
     entry_points: list[Node],
     crown_jewels: list[Node],
     weights: ScoringWeights,
+    db: "Session | None" = None,
 ) -> PathfindingReport:
     """For every entry point, the single easiest path to any crown jewel —
     spec §5's "show the easiest path to any crown jewel," run across the
     whole engagement rather than one specific entry point."""
-    graph = build_weighted_graph(nodes, edges, weights)
+    graph = build_weighted_graph(nodes, edges, weights, db)
     nodes_by_id = {n.id: n for n in nodes}
 
     report = PathfindingReport()

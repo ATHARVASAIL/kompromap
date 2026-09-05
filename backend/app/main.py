@@ -2,7 +2,22 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import edges, engagements, findings, graph, health, ingest, nodes, pathfind, reporting, snapshots
+from app.api import (
+    edges,
+    engagements,
+    finding_gen,
+    findings,
+    graph,
+    health,
+    ingest,
+    knowledge_base,
+    nodes,
+    pathfind,
+    reporting,
+    snapshots,
+    triage,
+    dedup,
+)
 from app.core.config import get_settings
 from app.core.security import require_api_key
 
@@ -44,6 +59,10 @@ _protected = [
     graph.router,
     pathfind.router,
     reporting.router,
+    triage.router,
+    dedup.router,
+    finding_gen.router,
+    knowledge_base.router,
 ]
 for _router in _protected:
     app.include_router(_router, prefix="/api", dependencies=[Depends(require_api_key)])

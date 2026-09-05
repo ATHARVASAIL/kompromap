@@ -1,5 +1,9 @@
-import { useState } from "react";
-import { generateEngagementReport, type ReportFormat } from "../api/client";
+import { useCallback, useState } from "react";
+import {
+  downloadEngagementReport,
+  generateEngagementReport,
+  type ReportFormat,
+} from "../api/client";
 import EmptyState from "../components/EmptyState";
 import ErrorBanner from "../components/ErrorBanner";
 import Spinner from "../components/Spinner";
@@ -31,32 +35,43 @@ interface ReportData {
   chains: { rank: number; entry_point: string; crown_jewel: string; total_cost: number }[];
 }
 
-const FORMATS: { id: ReportFormat; label: string; hint: string; ext: string; mime: string }[] = [
+const FORMATS: { id: ReportFormat; label: string; hint: string; ext: string; download?: boolean }[] = [
   {
     id: "html",
     label: "HTML",
     hint: "Self-contained page — opens anywhere and prints straight to PDF.",
     ext: "html",
-    mime: "text/html",
   },
   {
     id: "markdown",
     label: "Markdown",
     hint: "Paste into an existing report template.",
     ext: "md",
-    mime: "text/markdown",
   },
   {
     id: "json",
     label: "JSON",
     hint: "Structured data for further processing or a custom template.",
     ext: "json",
-    mime: "application/json",
+  },
+  {
+    id: "docx",
+    label: "Word",
+    hint: "DOCX document for tracked-change review.",
+    ext: "docx",
+    download: true,
+  },
+  {
+    id: "pdf",
+    label: "PDF",
+    hint: "PDF via WeasyPrint. Falls back to HTML if system deps are unavailable.",
+    ext: "pdf",
+    download: true,
   },
 ];
 
-function download(filename: string, content: string, mime: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -99,13 +114,18 @@ export default function ReportPage({ engagementId, engagementName }: ReportPageP
     setExporting(fmt.id);
     setError(null);
     try {
-      const res = await generateEngagementReport(fmt.id, { engagementId, includeNarratives });
-      const body =
-        fmt.id === "json" ? JSON.stringify(res.data, null, 2) : (res.content ?? "");
-      const stem = engagementName.replace(/[^\w-]+/g, "_").toLowerCase();
-      const date = new Date().toISOString().slice(0, 10);
-      download(`kompromap-report-${stem}-${date}.${fmt.ext}`, body, fmt.mime);
-      toast(`Exported as .${fmt.ext}`);
+      if (fmt.download) {
+        const { blob, filename } = await downloadEngagementReport(fmt.id, { engagementId, includeNarratives });
+        downloadBlob(filename, blob);
+        toast(`Exported as .${fmt.ext}`);
+      } else {
+        const res = await generateEngagementReport(fmt.id, { engagementId, includeNarratives });
+        const body = fmt.id === "json" ? JSON.stringify(res.data, null, 2) : (res.content ?? "");
+        const stem = engagementName.replace(/[^\w-]+/g, "_").toLowerCase();
+        const date = new Date().toISOString().slice(0, 10);
+        downloadBlob(`kompromap-report-${stem}-${date}.${fmt.ext}`, new Blob([body], { type: "text/plain" }));
+        toast(`Exported as .${fmt.ext}`);
+      }
     } catch (e) {
       setError(String(e));
       toast("Export failed", "error");
@@ -239,8 +259,8 @@ export default function ReportPage({ engagementId, engagementName }: ReportPageP
                 What this report does not know
               </h2>
               <ul className="space-y-1.5 font-sans text-xs leading-relaxed text-text-secondary">
-                {preview.caveats.map((c) => (
-                  <li key={c} className="flex gap-2">
+                {preview.caveats.map((c, i) => (
+                  <li key={i} className="flex gap-2">
                     <span className="shrink-0 text-severity-medium">·</span>
                     {c}
                   </li>
@@ -253,7 +273,7 @@ export default function ReportPage({ engagementId, engagementName }: ReportPageP
             <h2 className="mb-2 font-sans text-xs font-medium uppercase tracking-wide text-text-tertiary">
               Export
             </h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {FORMATS.map((f) => (
                 <Tooltip key={f.id} label={f.hint}>
                   <button

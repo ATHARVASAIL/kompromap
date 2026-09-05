@@ -66,14 +66,28 @@ def parse_nuclei_json(source: str | bytes | Path) -> ParseResult:
         # possible rather than a flat default for every finding.
         cvss_vector = classification.get("cvss-metrics")
 
-        cwe_list = classification.get("cwe-id") or []
-        cwe = cwe_list[0] if cwe_list else None
+        cwe = _first_of(classification.get("cwe-id"))
+        cve = _first_of(classification.get("cve-id"))
 
         evidence_parts = [f"severity={severity}"]
+        if cve:
+            evidence_parts.append(f"cve={cve}")
         if record.get("curl-command"):
             evidence_parts.append(f"curl={record['curl-command']}")
         if record.get("matcher-name"):
             evidence_parts.append(f"matcher={record['matcher-name']}")
+        # Nuclei reports whether the matcher actually fired. A record with
+        # matcher-status false is a non-match that was only emitted because
+        # the scan ran with -mts; recording it stops a debugging artifact
+        # being read as a confirmed finding.
+        if record.get("matcher-status") is False:
+            evidence_parts.append("matcher-status=false (matcher did not fire)")
+        if record.get("ip"):
+            evidence_parts.append(f"ip={record['ip']}")
+        extracted = record.get("extracted-results")
+        if extracted:
+            joined = ", ".join(str(x) for x in extracted[:5])
+            evidence_parts.append(f"extracted={joined}")
 
         result.findings.append(
             ParsedFinding(
@@ -94,6 +108,25 @@ def parse_nuclei_json(source: str | bytes | Path) -> ParseResult:
         )
 
     return result
+
+
+def _first_of(value) -> str | None:
+    """Nuclei's `cwe-id` and `cve-id` are `StringOrSlice` in its own JSON
+    schema — either a bare string or a list.
+
+    Treating a string as a list silently yields its first *character*:
+    "CWE-79" became "C". Nothing errors, the finding just carries garbage
+    into the report, which is the worst kind of parsing bug.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                return item.strip()
+    return None
 
 
 def _auth_required_from_vector(vector: str | None) -> bool:

@@ -28,6 +28,21 @@ const TERM_META: Record<string, { label: string; color: string; hint: string }> 
     color: severityColor("low"),
     hint: "How easy the exploit is to pull off. Derived from the CVSS vector's Attack Complexity, Privileges Required and User Interaction fields.",
   },
+  asset_criticality: {
+    label: "asset criticality",
+    color: severityColor("high"),
+    hint: "How important the target asset is. Derived from the asset type (cloud_resource > domain > subdomain > ip) and whether it is tagged as a crown jewel or entry point.",
+  },
+  data_sensitivity: {
+    label: "data sensitivity",
+    color: colors.warning,
+    hint: "How sensitive the data at the target is. PCI > PII > none, based on the DataStore's classification.",
+  },
+  exposure_factor: {
+    label: "exposure",
+    color: colors.accent,
+    hint: "How exposed the target is externally. Entry points are fully exposed; crown jewels are highly exposed even if not directly internet-facing.",
+  },
 };
 
 /**
@@ -42,14 +57,22 @@ const TERM_META: Record<string, { label: string; color: string; hint: string }> 
  * vector when one exists and a configured fallback otherwise, and showing
  * both with the same confidence would overstate what we actually know.
  */
+const EXTENDED_KEYS = new Set(["asset_criticality", "data_sensitivity", "exposure_factor"]);
+
 export default function ScoreExplainer({ breakdown, cost }: ScoreExplainerProps) {
   const entries = Object.entries(breakdown.contributions).filter(([, v]) => v > 0);
   const total = entries.reduce((sum, [, v]) => sum + v, 0);
+  const hasExtended = entries.some(([k]) => EXTENDED_KEYS.has(k));
 
   return (
     <div className="rounded border border-border-subtle bg-surface-0/60 p-2.5 font-mono text-[11px]">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-text-tertiary">why this step costs {cost.toFixed(3)}</span>
+        {hasExtended && (
+          <span className="rounded-full border border-accent/30 bg-accent/5 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-accent">
+            extended risk
+          </span>
+        )}
         <Tooltip
           label={
             breakdown.complexity_measured

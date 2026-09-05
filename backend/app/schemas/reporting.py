@@ -34,7 +34,7 @@ class EngagementReportRequest(BaseModel):
     engagement_id: uuid.UUID | None = Field(
         default=None, description="Defaults to the active engagement."
     )
-    format: Literal["json", "markdown", "html"] = "json"
+    format: Literal["json", "markdown", "html", "docx", "pdf"] = "json"
     include_narratives: bool = Field(
         default=False,
         description="Generate a prose narrative per chain. Slower, and uses the "

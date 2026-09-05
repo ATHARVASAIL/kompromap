@@ -57,3 +57,28 @@ class FindingStatus(str, Enum):
     OPEN = "open"
     FIXED = "fixed"
     ACCEPTED_RISK = "accepted-risk"
+
+
+class VerificationStatus(str, Enum):
+    """Whether a tester has confirmed a finding is real.
+
+    Deliberately separate from FindingStatus, which tracks *remediation*
+    ("is it fixed?"). This tracks *triage* ("is it actually there?") — a
+    finding can be confirmed-real and still open, or unverified and
+    already fixed.
+
+    Kompromap never sets this to CONFIRMED or FALSE_POSITIVE by itself.
+    Deciding a finding is a false positive means verifying the
+    vulnerability — sending the payload, reading the response — and this
+    tool never touches the target; it only reads files you hand it. A
+    heuristic guess presented as a verdict is actively dangerous: if the
+    tool says "probably a false positive" and you skip verifying, and it
+    was real, the report ships with a live vulnerability missed because
+    software was confident. So the tool surfaces corroborating evidence
+    and records the analyst's judgement.
+    """
+
+    UNVERIFIED = "unverified"
+    CONFIRMED = "confirmed"
+    FALSE_POSITIVE = "false-positive"
+    NEEDS_RETEST = "needs-retest"

@@ -449,6 +449,8 @@ def render_json(report: EngagementReport) -> dict:
                 "cwe": f.cwe,
                 "owasp_category": f.owasp_category,
                 "status": f.status,
+                "verification_status": f.verification_status,
+                "verification_note": f.verification_note,
                 "evidence": f.evidence,
                 "affected": f.affected,
                 "exploit_public": f.exploit_public,

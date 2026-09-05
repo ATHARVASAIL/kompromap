@@ -1,7 +1,7 @@
 import type { Engagement } from "../types/graph";
 import EngagementSwitcher from "./EngagementSwitcher";
 
-export type Section = "graph" | "findings" | "pathfind" | "report" | "dashboard" | "import";
+export type Section = "graph" | "findings" | "dedup" | "knowledge" | "pathfind" | "correlation" | "report" | "dashboard" | "import";
 
 interface SidebarProps {
   active: Section;
@@ -38,6 +38,28 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
     ),
   },
   {
+    id: "dedup",
+    label: "Dedup",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="7" cy="7" r="2.2" />
+        <circle cx="17" cy="17" r="2.2" />
+        <path d="M8.5 8.5 15.5 15.5" strokeDasharray="2 2" />
+      </svg>
+    ),
+  },
+  {
+    id: "knowledge",
+    label: "Knowledge",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+        <path d="M8 7h8M8 11h8M8 15h4" />
+      </svg>
+    ),
+  },
+  {
     id: "pathfind",
     label: "Path Analysis",
     icon: (
@@ -45,6 +67,18 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
         <circle cx="5" cy="18" r="2" />
         <circle cx="19" cy="6" r="2" />
         <path d="M6.6 16.7 16 8.5" strokeDasharray="2.5 2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: "correlation",
+    label: "Correlation",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="5" cy="19" r="2.2" />
+        <circle cx="19" cy="5" r="2.2" />
+        <path d="M6.7 17.3 17.3 6.7" strokeDasharray="2.5 2.5" />
+        <circle cx="12" cy="12" r="1.5" />
       </svg>
     ),
   },
@@ -72,7 +106,17 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
     ),
   },
   {
-    id: "import",
+    id: "dedup",
+    label: "Dedup",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="7" cy="7" r="2.2" />
+        <circle cx="17" cy="17" r="2.2" />
+        <path d="M8.5 8.5 15.5 15.5" strokeDasharray="2 2" />
+      </svg>
+    ),
+  },
+  {
     label: "Import",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">

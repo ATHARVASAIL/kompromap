@@ -28,9 +28,17 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
-# CVSS v3 vectors look like:
-#   CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H
-_VECTOR_RE = re.compile(r"^CVSS:3\.[01]/(?:[A-Z]+:[A-Z]+/?)+$", re.IGNORECASE)
+# CVSS v3 vectors appear in two forms in the wild:
+#   CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H   (FIRST's canonical form)
+#   3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H        (Nuclei's own schema example)
+#
+# The `CVSS:` prefix is optional here for exactly that reason — Nuclei's
+# nuclei-jsonschema.json documents `cvss-metrics` with the bare form, while
+# plenty of real templates carry the prefixed one. Requiring the prefix
+# silently rejected genuine scanner output and fell back to an assumed
+# complexity, which is the quiet-wrong-answer failure mode this module
+# exists to avoid.
+_VECTOR_RE = re.compile(r"^(?:CVSS:)?3\.[01]/(?:[A-Z]+:[A-Z]+/?)+$", re.IGNORECASE)
 _PART_RE = re.compile(r"([A-Z]+):([A-Z]+)", re.IGNORECASE)
 
 
@@ -121,10 +129,11 @@ class CvssVector:
 def parse_cvss_vector(vector: str | None) -> CvssVector | None:
     """Parse a CVSS v3.x vector string. Returns None if it isn't one.
 
-    Deliberately strict about the `CVSS:3.x/` prefix — CVSS v2 vectors use
-    the same `AV:`/`AC:` letters with *different* meanings (v2's AC:M has
-    no v3 equivalent), so silently parsing one as v3 would produce
-    confidently wrong numbers.
+    Accepts both the prefixed (`CVSS:3.1/...`) and bare (`3.1/...`) forms,
+    since Nuclei emits the latter. Still strict about the `3.x` version
+    marker: CVSS v2 vectors reuse the same `AV:`/`AC:` letters with
+    *different* meanings (v2's AC:M has no v3 equivalent), so silently
+    parsing one as v3 would produce confidently wrong numbers.
     """
     if not vector:
         return None

@@ -88,6 +88,9 @@ export interface ScoreBreakdown {
   unauthenticated: number;
   complexity: number;
   complexity_measured: boolean;
+  asset_criticality: number;
+  data_sensitivity: number;
+  exposure_factor: number;
   contributions: Record<string, number>;
 }
 
@@ -119,6 +122,9 @@ export interface ScoringWeights {
   auth_required: number;
   complexity: number;
   default_complexity: number;
+  asset_criticality: number;
+  data_sensitivity: number;
+  exposure_factor: number;
 }
 
 export interface PathfindBestResponse {
@@ -190,6 +196,15 @@ export interface DashboardData {
   highest_ease_chain: PathResult | null;
 }
 
+export type VerificationStatus = "unverified" | "confirmed" | "false-positive" | "needs-retest";
+
+export const VERIFICATION_LABELS: Record<VerificationStatus, string> = {
+  unverified: "Unverified",
+  confirmed: "Confirmed",
+  "false-positive": "False positive",
+  "needs-retest": "Needs retest",
+};
+
 export const NODE_TYPE_LABELS: Record<NodeType, string> = {
   asset: "Asset",
   service: "Service",
@@ -215,3 +230,44 @@ export const EDGE_TYPE_LABELS: Record<EdgeType, string> = {
 // re-exported here under the original name so every existing import site
 // keeps working unmodified.
 export { nodeTypeColor as NODE_TYPE_COLOR } from "../styles/tokens";
+
+// --- Dedup types ----------------------------------------------------------
+
+export interface DedupScan {
+  id: string;
+  engagement_id: string;
+  similarity_threshold: number;
+  signals: string[];
+  candidates_found: number;
+  candidates_filtered: number;
+  created_at: string;
+}
+
+export interface MergeCandidate {
+  id: string;
+  scan_id: string;
+  finding_a_id: string;
+  finding_b_id: string;
+  signal_scores: Record<string, number>;
+  overall_score: number;
+  high_impact: boolean;
+  action: string;
+  kept_id: string | null;
+  analyst_note: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  finding_a_title: string;
+  finding_b_title: string;
+}
+
+export interface MergeCandidateAction {
+  action: "merge" | "keep_separate" | "mark_duplicate";
+  kept_id?: string;
+  analyst_note?: string;
+}
+
+export interface DedupScanCreate {
+  similarity_threshold?: number;
+  signals?: string[];
+  weights?: Record<string, number>;
+}

@@ -4,8 +4,11 @@ import { ScopeBadge, SeverityBadge, StatusBadge } from "./Badge";
 import ErrorBanner from "./ErrorBanner";
 import Skeleton from "./Skeleton";
 import Spinner from "./Spinner";
+import AiAssessment from "./AiAssessment";
+import VerificationControl from "./VerificationControl";
 import { useToast } from "./toastContext";
 import { severityFromCvss } from "../styles/tokens";
+import type { VerificationStatus } from "../types/graph";
 import { NODE_TYPE_COLOR, NODE_TYPE_LABELS, type NodeDetail } from "../types/graph";
 
 type FindingStatus = "open" | "fixed" | "accepted-risk";
@@ -42,6 +45,9 @@ const HIDDEN_FIELDS = new Set([
   "notes",
   "created_at",
   "updated_at",
+  "verification_status",
+  "verification_note",
+  "ai_assessment",
 ]);
 
 export default function DetailPanel({ nodeId, onClose, onChanged, onDeleted }: DetailPanelProps) {
@@ -81,6 +87,26 @@ export default function DetailPanel({ nodeId, onClose, onChanged, onDeleted }: D
     } catch (e) {
       setError(String(e));
       toast("Couldn't update node", "error");
+    }
+  }
+
+  async function setVerification(status: VerificationStatus, verificationNote: string | null) {
+    if (!node) return;
+    try {
+      const updated = await updateNode(node.id, {
+        verification_status: status,
+        verification_note: verificationNote,
+      });
+      setNode(updated);
+      onChanged();
+      toast(
+        status === "false-positive"
+          ? "Marked false positive — excluded from attack chains"
+          : `Marked ${status.replace("-", " ")}`,
+      );
+    } catch (e) {
+      setError(String(e));
+      toast("Couldn't update verification", "error");
     }
   }
 
@@ -168,6 +194,16 @@ export default function DetailPanel({ nodeId, onClose, onChanged, onDeleted }: D
               crown jewel
             </button>
           </div>
+
+          {node.node_type === "finding" && <AiAssessment findingId={node.id} />}
+
+          {node.node_type === "finding" && (
+            <VerificationControl
+              status={(node.verification_status as VerificationStatus) ?? "unverified"}
+              note={(node.verification_note as string | null) ?? null}
+              onChange={setVerification}
+            />
+          )}
 
           <dl className="space-y-2 border-t border-border pt-4">
             {node.node_type === "finding" && (
