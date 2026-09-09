@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchGraph, getActiveEngagement } from "../api/client";
 import CommandPalette, { type Command } from "../components/CommandPalette";
-import CorrelationPage from "./CorrelationPage";
 import ErrorBanner from "../components/ErrorBanner";
 import ShortcutsHelp from "../components/ShortcutsHelp";
 import SnapshotPanel from "../components/SnapshotPanel";
 import Sidebar, { type Section } from "../components/Sidebar";
+import CorrelationPage from "./CorrelationPage";
 import DashboardPage from "./DashboardPage";
 import DedupPage from "./DedupPage";
 import FindingsPage from "./FindingsPage";
 import GraphSection from "./GraphSection";
 import ImportPage from "./ImportPage";
+import FindingGenerator from "./FindingGenerator"
+import KnowledgePage from "./KnowledgePage";
 import PathAnalysisPage from "./PathAnalysisPage";
 import ReportPage from "./ReportPage";
-import KnowledgeBasePage from "./KnowledgeBasePage";
 import type { Engagement, GraphFilters, GraphResponse, PathResult } from "../types/graph";
 
 export default function AppShell() {
@@ -34,20 +35,14 @@ export default function AppShell() {
 
   const loadEngagement = useCallback(() => {
     getActiveEngagement()
-      .then((e) => {
-        setEngagement(e);
-        setEngagementError(null);
-      })
+      .then((e) => { setEngagement(e); setEngagementError(null); })
       .catch((e) => setEngagementError(String(e)));
   }, []);
 
   const loadGraph = useCallback(() => {
     setLoading(true);
     fetchGraph(filters)
-      .then((g) => {
-        setGraph(g);
-        setError(null);
-      })
+      .then((g) => { setGraph(g); setError(null); })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   }, [filters]);
@@ -67,9 +62,6 @@ export default function AppShell() {
     setSelectedNodeId(nodeId);
   }
 
-  // Keyboard shortcuts, active anywhere in the app. Ignored while typing in
-  // an editable field, except Escape (always works) and Ctrl/Cmd+K (a
-  // deliberate override so the palette is reachable even mid-form).
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
@@ -112,11 +104,13 @@ export default function AppShell() {
   const commands: Command[] = [
     { id: "go-graph", label: "Go to Graph", action: () => setSection("graph") },
     { id: "go-findings", label: "Go to Findings", action: () => setSection("findings") },
-    { id: "go-knowledge", label: "Go to Knowledge Base", keywords: "cwe reference similarity knowledge", action: () => setSection("knowledge") },
-    { id: "go-correlation", label: "Go to Correlation", keywords: "risk extended target", action: () => setSection("correlation") },
     { id: "go-pathfind", label: "Go to Path Analysis", keywords: "attack chain", action: () => setSection("pathfind") },
     { id: "go-report", label: "Go to Report", keywords: "export pdf markdown deliverable", action: () => setSection("report") },
     { id: "go-dashboard", label: "Go to Dashboard", keywords: "stats overview", action: () => setSection("dashboard") },
+    { id: "go-dedup", label: "Go to Dedup", keywords: "duplicate merge", action: () => setSection("dedup") },
+    { id: "go-correlation", label: "Go to Correlation", keywords: "risk extended", action: () => setSection("correlation") },
+    { id: "go-knowledge", label: "Go to Knowledge Base", keywords: "cve cwe mitigation", action: () => setSection("knowledge") },
+  { id: "go-finding-gen", label: "Go to AI Findings", keywords: "pentest report generate", action: () => setSection("finding-gen") },
     { id: "go-import", label: "Go to Import", keywords: "nmap nuclei amass burp upload", action: () => setSection("import") },
     { id: "new-node", label: "Create node", hint: "+ node", action: () => setShowCreateNode(true) },
     { id: "new-edge", label: "Create edge", hint: "+ edge", action: () => setShowCreateEdge(true) },
@@ -129,6 +123,8 @@ export default function AppShell() {
     },
     { id: "shortcuts", label: "Show keyboard shortcuts", hint: "?", action: () => setShowShortcuts(true) },
   ];
+
+  const needsEngagement = section !== "dashboard" && section !== "import" && section !== "report";
 
   return (
     <div className="flex h-screen bg-surface-0 text-text-primary">
@@ -178,17 +174,7 @@ export default function AppShell() {
           />
         )}
 
-        {section === "knowledge" && engagement && (
-          <KnowledgeBasePage />
-        )}
-        {section === "dedup" && engagement && (
-          <DedupPage engagement={engagement} />
-        )}
         {section === "findings" && <FindingsPage onViewInGraph={goToNodeInGraph} />}
-
-        {section === "correlation" && (
-          <CorrelationPage graph={graph} />
-        )}
 
         {section === "pathfind" && (
           <PathAnalysisPage graph={graph} highlightedPath={highlightedPath} onSelectPath={setHighlightedPath} />
@@ -201,6 +187,13 @@ export default function AppShell() {
         {section === "dashboard" && engagement && (
           <DashboardPage engagementId={engagement.id} onOpenSnapshots={() => setShowSnapshots(true)} />
         )}
+
+        {section === "dedup" && <DedupPage />}
+
+        {section === "correlation" && <CorrelationPage />}
+
+        {section === "finding-gen" && <FindingGenerator onCreateFinding={() => {}} />}
+        {section === "knowledge" && <KnowledgePage />}
 
         {section === "import" && engagement && (
           <ImportPage engagementId={engagement.id} onImported={loadGraph} />

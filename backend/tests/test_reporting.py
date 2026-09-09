@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.models import Asset, DataStore, Edge, EdgeType, Finding, NodeType
+from app.models import Asset, DataStore, Edge, EdgeType, Engagement, Finding, NodeType
 from app.services.reporting import (
     ChainResolutionError,
     build_chain_export,
@@ -144,3 +144,26 @@ def test_render_markdown_includes_chain_and_evidence(db_session):
     assert "Subdomain takeover" in md
     assert "## Evidence" in md
     assert "NXDOMAIN" in md
+
+
+# ── Report renderers (report_render.py) ─────────────────────────────────
+
+class TestReportRenderers:
+    def test_render_html_contains_chains(self, db_session):
+        from app.services.engagement_report import build_engagement_report
+        from app.services.report_render import render_html
+        eng_id = db_session.query(Engagement).first().id
+        report = build_engagement_report(db_session, eng_id, include_narratives=False)
+        html = render_html(report)
+        assert isinstance(html, str)
+        assert len(html) > 0
+        assert "<html" in html.lower() or "<!doctype" in html.lower()
+
+    def test_render_json_has_expected_keys(self, db_session):
+        from app.services.engagement_report import build_engagement_report
+        from app.services.report_render import render_json
+        eng_id = db_session.query(Engagement).first().id
+        report = build_engagement_report(db_session, eng_id, include_narratives=False)
+        data = render_json(report)
+        assert isinstance(data, dict)
+        assert "engagement" in data or "summary" in data

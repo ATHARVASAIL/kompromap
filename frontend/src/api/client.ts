@@ -249,28 +249,6 @@ export interface TriageStatus {
   reason?: string | null;
 }
 
-export interface GeneratedFinding {
-  title: string;
-  description: string;
-  remediation_steps: string[];
-  references: string[];
-  confidence: number;
-}
-
-export interface FindingGenResponse {
-  finding_id: string;
-  available: boolean;
-  generated: GeneratedFinding | null;
-  error?: string | null;
-  model?: string | null;
-}
-
-export interface FindingGenStatus {
-  available: boolean;
-  provider: string;
-  reason?: string | null;
-}
-
 export function getTriageStatus(): Promise<TriageStatus> {
   return fetch(`${API_BASE}/api/triage/status`, { headers: authHeaders() }).then((r) =>
     handle<TriageStatus>(r),
@@ -290,77 +268,8 @@ export function getFindingAssessment(findingId: string): Promise<TriageResponse>
   }).then((r) => handle<TriageResponse>(r));
 }
 
-export function getFindingGenStatus(): Promise<FindingGenStatus> {
-  return fetch(`${API_BASE}/api/finding-gen/status`, { headers: authHeaders() }).then((r) =>
-    handle<FindingGenStatus>(r),
-  );
-}
-
-export function generateFindingDescription(findingId: string): Promise<FindingGenResponse> {
-  return fetch(`${API_BASE}/api/finding-gen/generate`, {
-    method: "POST",
-    headers: { ...JSON_HEADERS(), ...authHeaders() },
-    body: JSON.stringify({ finding_id: findingId }),
-  }).then((r) => handle<FindingGenResponse>(r));
-}
-
-// ── Knowledge base ──────────────────────────────────────────────────────
-export interface KnowledgeBaseEntryResponse {
-  id: string;
-  cwe_id: string | null;
-  name: string;
-  description: string;
-  remediation: string;
-  references: string[];
-  tags: string[];
-  owasp_category: string | null;
-  severity_guidance: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SimilarSearchResponse {
-  query_cwe: string | null;
-  query_tags: string[];
-  matches: {
-    entry_id: string;
-    cwe_id: string | null;
-    name: string;
-    score: number;
-    match_reason: string;
-  }[];
-}
-
-export function getKbEntries(opts?: { cweId?: string; tag?: string; search?: string; limit?: number }): Promise<KnowledgeBaseEntryResponse[]> {
-  const params = new URLSearchParams();
-  if (opts?.cweId) params.set("cwe_id", opts.cweId);
-  if (opts?.tag) params.set("tag", opts.tag);
-  if (opts?.search) params.set("search", opts.search);
-  if (opts?.limit) params.set("limit", String(opts.limit));
-  const qs = params.toString();
-  return fetch(`${API_BASE}/api/knowledge-base/${qs ? "?" + qs : ""}`, { headers: authHeaders() })
-    .then((r) => handle<KnowledgeBaseEntryResponse[]>(r));
-}
-
-export function seedKb(): Promise<{ inserted: number }> {
-  return fetch(`${API_BASE}/api/knowledge-base/seed`, {
-    method: "POST",
-    headers: authHeaders(),
-  }).then((r) => handle<{ inserted: number }>(r));
-}
-
-export function searchKbSimilar(
-  payload: { cwe_id?: string; tags?: string[]; description?: string; top_n?: number; min_score?: number },
-): Promise<SimilarSearchResponse> {
-  return fetch(`${API_BASE}/api/knowledge-base/search`, {
-    method: "POST",
-    headers: { ...JSON_HEADERS(), ...authHeaders() },
-    body: JSON.stringify(payload),
-  }).then((r) => handle<SimilarSearchResponse>(r));
-}
-
 export function generateEngagementReport(
-  format: Exclude<ReportFormat, "docx" | "pdf">,
+  format: ReportFormat,
   opts: { engagementId?: string; includeNarratives?: boolean; weights?: ScoringWeights } = {},
 ): Promise<EngagementReportResponse> {
   return fetch(`${API_BASE}/api/reports/engagement`, {
@@ -375,29 +284,6 @@ export function generateEngagementReport(
   }).then((r) => handle<EngagementReportResponse>(r));
 }
 
-export function downloadEngagementReport(
-  format: "docx" | "pdf",
-  opts: { engagementId?: string; includeNarratives?: boolean; weights?: ScoringWeights } = {},
-): Promise<{ blob: Blob; filename: string; format: string }> {
-  return fetch(`${API_BASE}/api/reports/engagement`, {
-    method: "POST",
-    headers: JSON_HEADERS(),
-    body: JSON.stringify({
-      format,
-      ...(opts.engagementId ? { engagement_id: opts.engagementId } : {}),
-      include_narratives: opts.includeNarratives ?? false,
-      ...(opts.weights ? { weights: opts.weights } : {}),
-    }),
-  }).then((r) => {
-    if (!r.ok) return handle<never>(r);
-    const contentDisposition = r.headers.get("content-disposition") || "";
-    const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-    const filename = filenameMatch ? filenameMatch[1] : `report.${format}`;
-    const detectedFormat = r.headers.get("content-type")?.includes("pdf") ? "pdf" : "html-fallback";
-    return r.blob().then((blob) => ({ blob, filename, format: detectedFormat }));
-  });
-}
-
 export function exportChain(
   nodeIds: string[],
   format: "markdown" | "json",
@@ -410,76 +296,175 @@ export function exportChain(
   }).then((r) => handle<ExportResponse>(r));
 }
 
-// --- Dedup ----------------------------------------------------------
+// --- Deduplication (Phase 2) ---------------------------------------------
 
 export interface DedupScanResponse {
-  id: string;
-  engagement_id: string;
-  similarity_threshold: number;
-  signals: string[];
-  candidates_found: number;
-  candidates_filtered: number;
-  created_at: string;
+  scan: {
+    id: string;
+    engagement_id: string;
+    created_at: string;
+    total_candidates: number;
+    high_confidence_count: number;
+    merged_count: number;
+    dismissed_count: number;
+    settings_snapshot: Record<string, unknown>;
+  };
+  candidates: MergeCandidateRead[];
 }
 
-export interface MergeCandidateResponse {
+export interface MergeCandidateRead {
   id: string;
   scan_id: string;
+  engagement_id: string;
   finding_a_id: string;
   finding_b_id: string;
-  signal_scores: Record<string, number>;
+  dimensions: {
+    url_similarity: number;
+    endpoint_similarity: number;
+    param_similarity: number;
+    cwe_similarity: number;
+    request_similarity: number;
+    response_similarity: number;
+  };
   overall_score: number;
-  high_impact: boolean;
-  action: string;
-  kept_id: string | null;
-  analyst_note: string | null;
-  resolved_at: string | null;
+  threshold_used: number;
+  status: string;
+  notes: string | null;
   created_at: string;
-  finding_a_title: string;
-  finding_b_title: string;
+  resolved_at: string | null;
 }
 
-export interface MergeCandidateActionPayload {
-  action: "merge" | "keep_separate" | "mark_duplicate";
-  kept_id?: string;
-  analyst_note?: string;
+export interface MergeCandidateResolve {
+  action: "merged" | "dismissed";
+  notes?: string | null;
 }
 
-export function runDedupScan(payload: { similarity_threshold?: number; signals?: string[]; weights?: Record<string, number> } = {}): Promise<DedupScanResponse> {
+export function runDedupScan(threshold = 0.75): Promise<DedupScanResponse> {
   return fetch(`${API_BASE}/api/dedup/scan`, {
     method: "POST",
     headers: JSON_HEADERS(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ threshold }),
   }).then((r) => handle<DedupScanResponse>(r));
 }
 
-export function listDedupScans(engagementId?: string): Promise<DedupScanResponse[]> {
-  const qs = engagementId ? `?engagement_id=${engagementId}` : "";
-  return fetch(`${API_BASE}/api/dedup/scans${qs}`, { headers: authHeaders() }).then((r) =>
-    handle<DedupScanResponse[]>(r),
-  );
-}
-
-export function getDedupScan(scanId: string): Promise<DedupScanResponse> {
-  return fetch(`${API_BASE}/api/dedup/scans/${scanId}`, { headers: authHeaders() }).then((r) =>
-    handle<DedupScanResponse>(r),
-  );
-}
-
-export function getDedupCandidates(scanId: string, action?: string): Promise<MergeCandidateResponse[]> {
-  const qs = action ? `?action=${action}` : "";
-  return fetch(`${API_BASE}/api/dedup/scans/${scanId}/candidates${qs}`, { headers: authHeaders() }).then((r) =>
-    handle<MergeCandidateResponse[]>(r),
+export function listDedupCandidates(status?: string): Promise<MergeCandidateRead[]> {
+  const qs = status ? `?status=${status}` : "";
+  return fetch(`${API_BASE}/api/dedup/candidates${qs}`, { headers: authHeaders() }).then((r) =>
+    handle<MergeCandidateRead[]>(r),
   );
 }
 
 export function resolveDedupCandidate(
   candidateId: string,
-  payload: MergeCandidateActionPayload,
-): Promise<{ id: string; action: string; kept_id: string | null; analyst_note: string | null; resolved_at: string | null }> {
+  action: "merged" | "dismissed",
+  notes?: string | null,
+): Promise<MergeCandidateRead> {
   return fetch(`${API_BASE}/api/dedup/candidates/${candidateId}/resolve`, {
     method: "POST",
     headers: JSON_HEADERS(),
+    body: JSON.stringify({ action, notes }),
+  }).then((r) => handle<MergeCandidateRead>(r));
+}
+
+// --- Correlation / extended risk (Phase 3) ------------------------------
+
+export interface RiskFactorResponse {
+  asset_id: string;
+  name: string;
+  type: string;
+  base_cvss: number;
+  criticality: number;
+  sensitivity: number;
+  exposure: number;
+  extended_risk: number;
+  finding_count: number;
+  critical_findings: number;
+  attack_paths_in: number;
+}
+
+export interface CorrelationResponse {
+  engagement_id: string;
+  total_findings: number;
+  unique_cwes: number;
+  cwe_groups: Record<string | null, Array<Record<string, unknown>>>;
+  asset_risks: RiskFactorResponse[];
+  assets_exposed: number;
+  average_risk: number;
+}
+
+export function getCorrelation(): Promise<CorrelationResponse> {
+  return fetch(`${API_BASE}/api/correlation`, { headers: authHeaders() }).then((r) =>
+    handle<CorrelationResponse>(r),
+  );
+}
+
+// --- Knowledge base (Phase 5) --------------------------------------------
+
+export interface KBEntry {
+  id: string;
+  reference_id: string;
+  title: string;
+  description: string | null;
+  source: string;
+  severity: string | null;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export function searchKnowledgeBase(query: string): Promise<KBEntry[]> {
+  const qs = query ? `?q=${encodeURIComponent(query)}` : "";
+  return fetch(`${API_BASE}/api/knowledge${qs}`, { headers: authHeaders() }).then((r) =>
+    handle<KBEntry[]>(r),
+  );
+}
+
+export function getKBEntry(id: string): Promise<KBEntry> {
+  return fetch(`${API_BASE}/api/knowledge/${id}`, { headers: authHeaders() }).then((r) =>
+    handle<KBEntry>(r),
+  );
+}
+
+
+// ── Finding generator (Phase 4) ─────────────────────────────────────────
+
+export interface GeneratedFinding {
+  title: string;
+  description: string;
+  severity: string;
+  cwe: string | null;
+  owasp_category: string | null;
+  cvss_score: number | null;
+  cvss_vector: string | null;
+  exploit_public: boolean;
+  auth_required: boolean;
+  remediation: string;
+  affected_assets: string[];
+  evidence: string | null;
+  tags: string[];
+  assumptions: string[];
+}
+
+export interface FindingGenResponse {
+  findings: GeneratedFinding[];
+  model: string | null;
+  generated_at: string | null;
+  assumptions: string[];
+  note: string;
+}
+
+export function generateFindings(payload: {
+  node_id: string;
+  target_assets?: string[];
+  extra_context?: string;
+}): Promise<FindingGenResponse> {
+  return fetch(`${API_BASE}/api/finding-gen/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
-  }).then((r) => handle(r));
+  }).then((r) => handle<FindingGenResponse>(r));
+}
+
+export function getFindingGenHealth(): Promise<{ configured: boolean; provider: string }> {
+  return fetch(`${API_BASE}/api/finding-gen/health`).then((r) => handle(r));
 }

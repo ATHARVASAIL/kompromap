@@ -1,9 +1,5 @@
-import { useCallback, useState } from "react";
-import {
-  downloadEngagementReport,
-  generateEngagementReport,
-  type ReportFormat,
-} from "../api/client";
+import { useState } from "react";
+import { generateEngagementReport, type ReportFormat } from "../api/client";
 import EmptyState from "../components/EmptyState";
 import ErrorBanner from "../components/ErrorBanner";
 import Spinner from "../components/Spinner";
@@ -35,43 +31,51 @@ interface ReportData {
   chains: { rank: number; entry_point: string; crown_jewel: string; total_cost: number }[];
 }
 
-const FORMATS: { id: ReportFormat; label: string; hint: string; ext: string; download?: boolean }[] = [
+const BINARY_FORMATS = new Set(["docx", "pdf"]);
+const FORMATS: { id: ReportFormat; label: string; hint: string; ext: string; mime: string }[] = [
   {
     id: "html",
     label: "HTML",
     hint: "Self-contained page — opens anywhere and prints straight to PDF.",
     ext: "html",
+    mime: "text/html",
   },
   {
     id: "markdown",
     label: "Markdown",
     hint: "Paste into an existing report template.",
     ext: "md",
+    mime: "text/markdown",
   },
   {
     id: "json",
     label: "JSON",
     hint: "Structured data for further processing or a custom template.",
     ext: "json",
+    mime: "application/json",
   },
   {
     id: "docx",
-    label: "Word",
-    hint: "DOCX document for tracked-change review.",
+    label: "DOCX",
+    hint: "Microsoft Word document — editable format for client delivery.",
     ext: "docx",
-    download: true,
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   },
   {
     id: "pdf",
     label: "PDF",
-    hint: "PDF via WeasyPrint. Falls back to HTML if system deps are unavailable.",
+    hint: "Portable document format — ready to send.",
     ext: "pdf",
-    download: true,
+    mime: "application/pdf",
   },
 ];
 
-function downloadBlob(filename: string, blob: Blob) {
-  const url = URL.createObjectURL(blob);
+function download(filename: string, data: string, mime: string, isBase64 = false) {
+  const blob = isBase64
+    ? Uint8Array.from(atob(data), c => c.charCodeAt(0))
+    : new Blob([data], { type: mime });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const url = URL.createObjectURL(blob as any);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -114,18 +118,16 @@ export default function ReportPage({ engagementId, engagementName }: ReportPageP
     setExporting(fmt.id);
     setError(null);
     try {
-      if (fmt.download) {
-        const { blob, filename } = await downloadEngagementReport(fmt.id, { engagementId, includeNarratives });
-        downloadBlob(filename, blob);
-        toast(`Exported as .${fmt.ext}`);
-      } else {
-        const res = await generateEngagementReport(fmt.id, { engagementId, includeNarratives });
-        const body = fmt.id === "json" ? JSON.stringify(res.data, null, 2) : (res.content ?? "");
-        const stem = engagementName.replace(/[^\w-]+/g, "_").toLowerCase();
-        const date = new Date().toISOString().slice(0, 10);
-        downloadBlob(`kompromap-report-${stem}-${date}.${fmt.ext}`, new Blob([body], { type: "text/plain" }));
-        toast(`Exported as .${fmt.ext}`);
-      }
+      const res = await generateEngagementReport(fmt.id, { engagementId, includeNarratives });
+      const isBinary = BINARY_FORMATS.has(fmt.id);
+      const body =
+        fmt.id === "json" ? JSON.stringify(res.data, null, 2) : (res.content ?? "");
+      const raw = isBinary ? (res.content_b64 ?? "") : body;
+      const stem = engagementName.replace(/[^\w-]+/g, "_").toLowerCase();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = res.filename ?? `kompromap-report-${stem}-${date}.${fmt.ext}`;
+      download(filename, raw, fmt.mime, isBinary);
+      toast(`Exported as .${fmt.ext}`);
     } catch (e) {
       setError(String(e));
       toast("Export failed", "error");
@@ -259,8 +261,8 @@ export default function ReportPage({ engagementId, engagementName }: ReportPageP
                 What this report does not know
               </h2>
               <ul className="space-y-1.5 font-sans text-xs leading-relaxed text-text-secondary">
-                {preview.caveats.map((c, i) => (
-                  <li key={i} className="flex gap-2">
+                {preview.caveats.map((c) => (
+                  <li key={c} className="flex gap-2">
                     <span className="shrink-0 text-severity-medium">·</span>
                     {c}
                   </li>
@@ -273,7 +275,7 @@ export default function ReportPage({ engagementId, engagementName }: ReportPageP
             <h2 className="mb-2 font-sans text-xs font-medium uppercase tracking-wide text-text-tertiary">
               Export
             </h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
               {FORMATS.map((f) => (
                 <Tooltip key={f.id} label={f.hint}>
                   <button

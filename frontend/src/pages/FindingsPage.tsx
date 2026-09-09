@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listNodesByType } from "../api/client";
 import { NodeTypeBadge, SeverityBadge, StatusBadge } from "../components/Badge";
-import FindingGeneratorPanel from "../components/FindingGeneratorPanel";
 import EmptyState from "../components/EmptyState";
 import ErrorBanner from "../components/ErrorBanner";
 import Skeleton from "../components/Skeleton";
@@ -51,7 +50,6 @@ export default function FindingsPage({ onViewInGraph }: FindingsPageProps) {
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [dense, setDense] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function load() {
     setError(null);
@@ -200,9 +198,9 @@ export default function FindingsPage({ onViewInGraph }: FindingsPageProps) {
               {filtered.map((row, i) => (
                 <tr
                   key={row.id}
-                  onClick={() => setSelectedId(row.id)}
+                  onClick={() => onViewInGraph(row.id)}
                   style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}
-                  className={`group animate-fade-in cursor-pointer border-t border-border-subtle transition-colors duration-150 hover:bg-surface-2 ${selectedId === row.id ? "bg-accent/5" : ""}`}
+                  className="group animate-fade-in cursor-pointer border-t border-border-subtle transition-colors duration-150 hover:bg-surface-2"
                 >
                   <td className={dense ? "px-3 py-1" : "px-3 py-2"}>
                     <SeverityBadge severity={row.severity} />
@@ -224,53 +222,6 @@ export default function FindingsPage({ onViewInGraph }: FindingsPageProps) {
           </table>
         )}
       </div>
-
-      {selectedId && (
-        <DetailPanel
-          findingId={selectedId}
-          findingTitle={filtered.find((r) => r.id === selectedId)?.title ?? selectedId}
-          onViewInGraph={() => { onViewInGraph(selectedId); }}
-          onClose={() => setSelectedId(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function DetailPanel({
-  findingId,
-  findingTitle,
-  onViewInGraph,
-  onClose,
-}: {
-  findingId: string;
-  findingTitle: string;
-  onViewInGraph: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="border-t border-border bg-surface-1 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-sans text-xs font-medium uppercase tracking-wide text-text-tertiary">
-          Selected finding
-        </h3>
-        <div className="flex gap-2">
-          <button
-            onClick={onViewInGraph}
-            className="rounded border border-accent/40 bg-accent/8 px-2.5 py-1 font-mono text-[11px] text-accent hover:bg-accent/15"
-          >
-            view in graph
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded border border-border px-2.5 py-1 font-mono text-[11px] text-text-secondary hover:border-severity-critical/40 hover:text-severity-critical"
-          >
-            close
-          </button>
-        </div>
-      </div>
-      <p className="mt-1 font-mono text-sm text-text-primary">{findingTitle}</p>
-      <FindingGeneratorPanel findingId={findingId} findingTitle={findingTitle} />
     </div>
   );
 }

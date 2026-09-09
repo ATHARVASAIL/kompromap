@@ -15,8 +15,7 @@ type. Everything else follows the spec's per-type property tables exactly.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, Uuid, func
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Any, Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, TypeDecorator, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -29,10 +28,34 @@ from app.models.enums import (
     PrivilegeLevel,
 )
 
-# ARRAY(String) on Postgres (native, indexable); JSON-encoded list on other
-# dialects (e.g. SQLite in tests) — same DDL as before on Postgres, but lets
-# the model layer be exercised against SQLite for fast local test runs.
-StringList = JSON().with_variant(ARRAY(String), "postgresql")
+
+class StringList(TypeDecorator):  # type: ignore[type-arg]
+    """Persist Python lists[str] as JSON on all dialects.
+
+    On PostgreSQL the column is ``json`` (from this TypeDecorator's ``impl``).
+    SQLAlchemy's built-in ARRAY bind-processor would emit a Postgres-native
+    ``'{a,b}'`` literal, which the server rejects against a ``json`` column
+    with "column 'tags' is json but SQLAlchemy sends varchar[]".
+
+    By implementing the TypeDecorator ourselves we serialise lists as proper
+    JSON (``["a","b"]``) on the way in and deserialise back to Python lists
+    on the way out, which is exactly what a ``json`` column expects.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value: list[str] | None, dialect: Any) -> Any:
+        if value is None:
+            return []
+        return list(value)
+
+    def process_result_value(self, value: Any, dialect: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(v) for v in value]
+        return list(value)
 
 
 class Node(Base):
@@ -47,14 +70,9 @@ class Node(Base):
         String(32), nullable=False
     )
 
-    # Path-finding tags. See design note above for why these live here
-    # rather than on individual subtypes.
     is_entry_point: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_crown_jewel: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Nullable so pre-Phase-6 data (and direct API/script usage that never
-    # heard of engagements) keeps working — see app/models/engagement.py's
-    # docstring for the "active engagement" default-assignment story.
     engagement_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("engagements.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -135,7 +153,7 @@ class WebApplication(Node):
         Uuid, ForeignKey("nodes.id", ondelete="CASCADE"), primary_key=True
     )
     name: Mapped[str] = mapped_column(String(256), nullable=False)
-    base_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    base_url: Mapped[str] = mapped_column(String, nullable=False)
     tech_stack: Mapped[list[str]] = mapped_column(StringList, nullable=False, default=list)
     auth_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
@@ -150,7 +168,7 @@ class Endpoint(Node):
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("nodes.id", ondelete="CASCADE"), primary_key=True
     )
-    path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    path: Mapped[str] = mapped_column(String, nullable=False)
     method: Mapped[str] = mapped_column(String(16), nullable=False, default="GET")
     params: Mapped[list[str]] = mapped_column(StringList, nullable=False, default=list)
     requires_auth: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -221,24 +239,11 @@ class Finding(Node):
     cwe: Mapped[str | None] = mapped_column(String(32), nullable=True)
     owasp_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
     cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    # Triage state, distinct from `status` (which tracks remediation).
-    # Findings marked false-positive are excluded from path-finding —
-    # a chain built on an FP is a fabricated attack path.
     verification_status: Mapped[str] = mapped_column(
         String(20), nullable=False, server_default="unverified", default="unverified"
     )
     verification_note: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Advisory AI triage assessment, stored as validated JSON. Written only
-    # by services/ai/triage.py, which cannot touch any analyst-owned field.
-    # Nullable and ignorable: every feature works without it.
     ai_assessment: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Full CVSS v3 vector (e.g. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H").
-    # The score alone is a single number; the vector says *why* — including
-    # Attack Complexity, which the ease_score formula needs and which was
-    # previously a flat placeholder for every finding. Nuclei templates with
-    # `cvss-metrics` supply this for free. See app/services/cvss.py.
     cvss_vector: Mapped[str | None] = mapped_column(String(128), nullable=True)
     exploit_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     auth_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

@@ -1,7 +1,7 @@
 import type { Engagement } from "../types/graph";
 import EngagementSwitcher from "./EngagementSwitcher";
 
-export type Section = "graph" | "findings" | "dedup" | "knowledge" | "pathfind" | "correlation" | "report" | "dashboard" | "import";
+export type Section = "graph" | "findings" | "pathfind" | "report" | "dashboard" | "import" | "dedup" | "correlation" | "knowledge" | "finding-gen";
 
 interface SidebarProps {
   active: Section;
@@ -38,28 +38,6 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
     ),
   },
   {
-    id: "dedup",
-    label: "Dedup",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <circle cx="7" cy="7" r="2.2" />
-        <circle cx="17" cy="17" r="2.2" />
-        <path d="M8.5 8.5 15.5 15.5" strokeDasharray="2 2" />
-      </svg>
-    ),
-  },
-  {
-    id: "knowledge",
-    label: "Knowledge",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
-        <path d="M8 7h8M8 11h8M8 15h4" />
-      </svg>
-    ),
-  },
-  {
     id: "pathfind",
     label: "Path Analysis",
     icon: (
@@ -67,18 +45,6 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
         <circle cx="5" cy="18" r="2" />
         <circle cx="19" cy="6" r="2" />
         <path d="M6.6 16.7 16 8.5" strokeDasharray="2.5 2.5" />
-      </svg>
-    ),
-  },
-  {
-    id: "correlation",
-    label: "Correlation",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <circle cx="5" cy="19" r="2.2" />
-        <circle cx="19" cy="5" r="2.2" />
-        <path d="M6.7 17.3 17.3 6.7" strokeDasharray="2.5 2.5" />
-        <circle cx="12" cy="12" r="1.5" />
       </svg>
     ),
   },
@@ -110,13 +76,51 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
     label: "Dedup",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <circle cx="7" cy="7" r="2.2" />
-        <circle cx="17" cy="17" r="2.2" />
-        <path d="M8.5 8.5 15.5 15.5" strokeDasharray="2 2" />
+        <path d="M7 7h10v10H7z" />
+        <path d="M17 17l4-4-4-4" />
+        <path d="M7 7L3 11l4 4" />
       </svg>
     ),
   },
   {
+    id: "correlation",
+    label: "Correlation",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="6" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+        <circle cx="12" cy="6" r="2" />
+        <path d="M7.5 16.3 10 7.5M16.5 16.3 14 7.5" strokeDasharray="2.5 2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: "knowledge",
+    label: "Knowledge",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M4 4h6a3 3 0 013 3v1" />
+        <path d="M20 4h-6a3 3 0 00-3 3v1" />
+        <path d="M7 20v-3h6v3" />
+        <path d="M17 20v-3h-6v3" />
+      </svg>
+    ),
+  },
+  {
+  },
+  {
+    id: "finding-gen",
+    label: "AI Findings",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <path d="M12 2a4 4 0 014 4c0 1.95-1.4 3.58-3.25 3.93" />
+        <path d="M12 6a4 4 0 00-4 4c0 1.95 1.4 3.58 3.25 3.93" />
+        <path d="M16 16.5A2.5 2.5 0 0113.5 19h-3A2.5 2.5 0 018 16.5V14h8v2.5z" />
+      </svg>
+    ),
+  },
+  {
+    id: "import",
     label: "Import",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -128,8 +132,6 @@ const ITEMS: { id: Section; label: string; icon: JSX.Element }[] = [
   },
 ];
 
-// The sliding indicator is absolutely positioned, so it needs to know the
-// item geometry rather than inferring it from the DOM.
 const ITEM_HEIGHT = 36;
 const ITEM_GAP = 2;
 
@@ -160,9 +162,6 @@ export default function Sidebar({
       </div>
 
       <nav className="relative flex-1 p-2 font-mono text-xs">
-        {/* Sliding indicator — one element that moves, rather than each
-            item toggling its own background. Reads as a single continuous
-            object tracking your position instead of a blink. */}
         <span
           aria-hidden
           className="pointer-events-none absolute left-2 right-2 rounded bg-accent/10 ring-1 ring-inset ring-accent/25 transition-transform duration-300 ease-snap"

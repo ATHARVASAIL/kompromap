@@ -14,7 +14,4 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   auth_required: 0.2,
   complexity: 0.1,
   default_complexity: 0.5,
-  asset_criticality: 0.3,
-  data_sensitivity: 0.25,
-  exposure_factor: 0.15,
 };

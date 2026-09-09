@@ -1,31 +1,40 @@
-"""Structured output schema for AI-generated finding descriptions.
-
-Same structural-separation / output-validation defence the triage module
-uses: the model only sees scanner data, and its response is validated
-against a fixed schema before anything reaches the report.
-"""
+"""Schemas for the AI finding generator (Phase 4)."""
 from __future__ import annotations
 
-import json
-import re
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
-MAX_ITEMS = 8
-MAX_ITEM_CHARS = 500
-MAX_DESC_CHARS = 3000
+if TYPE_CHECKING:
+    from app.services.ai.finding_gen import FindingSeverity
 
 
-class GeneratedFinding(BaseModel):
-    """An AI-generated description for an existing finding."""
+class FindingGenerateRequest(BaseModel):
+    """Ask the AI to generate findings for a specific node."""
+    node_id: str
+    target_assets: list[str] = Field(default_factory=list)
+    extra_context: str | None = Field(default=None, max_length=1000)
 
-    title: str = Field(max_length=200, description="A concise, specific title for the finding.")
-    description: str = Field(max_length=MAX_DESC_CHARS, description="Technical description of the vulnerability, how it was identified, and why it matters.")
-    remediation_steps: list[str] = Field(default_factory=list, description="Ordered steps to remediate. Start with the most impactful.")
-    references: list[str] = Field(default_factory=list, description="Authoritative URLs: CWE, OWASP, NVD, vendor advisories.")
-    confidence: float = Field(ge=0.0, le=1.0, description="How confident the model is in this description given the evidence provided.")
 
-    @field_validator("remediation_steps", "references", mode="before")
+class GeneratedFindingRead(BaseModel):
+    """A generated finding, ready for review."""
+    title: str
+    description: str
+    severity: str
+    cwe: str | None = None
+    owasp_category: str | None = None
+    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cvss_vector: str | None = Field(default=None, max_length=128)
+    exploit_public: bool = False
+    auth_required: bool = True
+    remediation: str = Field(max_length=2000)
+    affected_assets: list[str] = Field(default_factory=list)
+    evidence: str | None = Field(default=None, max_length=2000)
+    tags: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+
+    @field_validator("affected_assets", "tags", "assumptions", mode="before")
     @classmethod
     def _coerce_list(cls, v):
         if v is None:
@@ -36,55 +45,26 @@ class GeneratedFinding(BaseModel):
             return [str(x) for x in v if x is not None and str(x).strip()]
         return []
 
-    @field_validator("remediation_steps", "references")
+    @field_validator("cvss_score", mode="before")
     @classmethod
-    def _bound_list(cls, v: list[str]) -> list[str]:
-        return [item[:MAX_ITEM_CHARS] for item in v[:MAX_ITEMS]]
-
-    @field_validator("confidence", mode="before")
-    @classmethod
-    def _coerce_confidence(cls, v):
+    def _coerce_cvss(cls, v):
+        if v is None:
+            return None
         if isinstance(v, str):
             v = v.strip().rstrip("%")
             try:
                 v = float(v)
             except ValueError:
-                return 0.0
-        if isinstance(v, (int, float)) and v > 1.0:
-            return min(float(v) / 100.0, 1.0)
+                return None
+        if isinstance(v, (int, float)) and v > 10.0:
+            return None
         return float(v)
 
 
-class GenerationParseError(ValueError):
-    pass
-
-
-_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
-
-
-def parse_generation_response(raw: str) -> GeneratedFinding:
-    """Parse and validate a model response. Raises GenerationParseError on
-    anything unusable."""
-    if not raw or not raw.strip():
-        raise GenerationParseError("empty response")
-
-    text = _FENCE_RE.sub("", raw.strip())
-
-    if not text.lstrip().startswith("{"):
-        start, end = text.find("{"), text.rfind("}")
-        if start == -1 or end <= start:
-            raise GenerationParseError("no JSON object found in response")
-        text = text[start : end + 1]
-
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise GenerationParseError(f"invalid JSON: {exc}") from exc
-
-    if not isinstance(data, dict):
-        raise GenerationParseError("response was not a JSON object")
-
-    try:
-        return GeneratedFinding.model_validate(data)
-    except Exception as exc:
-        raise GenerationParseError(f"response did not match schema: {exc}") from exc
+class FindingGenerateResponse(BaseModel):
+    """Returned findings, each labelled as advisory."""
+    findings: list[GeneratedFindingRead]
+    model: str | None = None
+    generated_at: datetime | None = None
+    assumptions: list[str] = Field(default_factory=list)
+    note: str = "AI-generated findings are advisory only. Edit and submit via the manual finding form."

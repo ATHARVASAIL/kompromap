@@ -56,7 +56,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(512), nullable=False),
         sa.Column("asset_type", sa.String(32), nullable=False),
         sa.Column("in_scope", sa.Boolean(), nullable=False),
-        sa.Column("tags", postgresql.ARRAY(sa.String()), nullable=False),
+        sa.Column("tags", postgresql.JSONB(), nullable=False),
     )
     op.create_index("ix_assets_name", "assets", ["name"])
 
@@ -95,7 +95,7 @@ def upgrade() -> None:
         ),
         sa.Column("path", sa.String(2048), nullable=False),
         sa.Column("method", sa.String(16), nullable=False),
-        sa.Column("params", postgresql.ARRAY(sa.String()), nullable=False),
+        sa.Column("params", postgresql.JSONB(), nullable=False),
         sa.Column("requires_auth", sa.Boolean(), nullable=True),
         sa.Column("documented", sa.Boolean(), nullable=False),
     )
@@ -129,7 +129,7 @@ def upgrade() -> None:
         sa.Column("port", sa.Integer(), nullable=False),
         sa.Column("protocol", sa.String(16), nullable=False),
         sa.Column("banner", sa.Text(), nullable=True),
-        sa.Column("tech_stack", postgresql.ARRAY(sa.String()), nullable=False),
+        sa.Column("tech_stack", postgresql.JSONB(), nullable=False),
     )
 
     op.create_table(
@@ -142,7 +142,7 @@ def upgrade() -> None:
         ),
         sa.Column("name", sa.String(256), nullable=False),
         sa.Column("base_url", sa.String(1024), nullable=False),
-        sa.Column("tech_stack", postgresql.ARRAY(sa.String()), nullable=False),
+        sa.Column("tech_stack", postgresql.JSONB(), nullable=False),
         sa.Column("auth_type", sa.String(64), nullable=True),
     )
 

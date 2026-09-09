@@ -22,28 +22,14 @@ const MEASURED: ScoreBreakdown = {
   unauthenticated: 1.0,
   complexity: 0.09,
   complexity_measured: true,
-  asset_criticality: 0.8,
-  data_sensitivity: 0.0,
-  exposure_factor: 0.5,
-  contributions: {
-    cvss: 0.4,
-    exploit_public: 0.3,
-    unauthenticated: 0.2,
-    complexity: 0.009,
-    asset_criticality: 0.24,
-    data_sensitivity: 0,
-    exposure_factor: 0.075,
-  },
+  contributions: { cvss: 0.4, exploit_public: 0.3, unauthenticated: 0.2, complexity: 0.091 },
 };
 
 const ASSUMED: ScoreBreakdown = {
   ...MEASURED,
   complexity: 0.5,
   complexity_measured: false,
-  contributions: {
-    ...MEASURED.contributions,
-    complexity: 0.05,
-  },
+  contributions: { ...MEASURED.contributions, complexity: 0.05 },
 };
 
 describe("ScoreExplainer", () => {
@@ -79,7 +65,7 @@ describe("ScoreExplainer", () => {
   it("omits zero-valued terms rather than rendering empty bars", () => {
     const partial: ScoreBreakdown = {
       ...MEASURED,
-      contributions: { cvss: 0.4, exploit_public: 0, unauthenticated: 0, complexity: 0.009, asset_criticality: 0.24, data_sensitivity: 0, exposure_factor: 0.075 },
+      contributions: { cvss: 0.4, exploit_public: 0, unauthenticated: 0, complexity: 0.05 },
     };
     render(<ScoreExplainer breakdown={partial} cost={0.55} />);
     expect(screen.getByText("CVSS")).toBeInTheDocument();
@@ -115,9 +101,8 @@ describe("ScoringWeightsPanel", () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByRole("button", { name: /scoring weights/i }));
-    // With extended weights the total is 1.7; cvss 0.4/1.7 ≈ 24%
-    expect(screen.getByText("24%")).toBeInTheDocument();
-    expect(screen.getByText("18%")).toBeInTheDocument(); // exploit_public
+    expect(screen.getByText("40%")).toBeInTheDocument(); // cvss 0.4 of 1.0
+    expect(screen.getByText("30%")).toBeInTheDocument();
   });
 
   it("reports a change when a slider moves", async () => {
@@ -146,18 +131,6 @@ describe("ScoringWeightsPanel", () => {
     expect(screen.queryByText("tuned")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /scoring weights/i }));
     expect(screen.getByRole("button", { name: /reset/i })).toBeDisabled();
-  });
-
-  it("shows extended risk terms in the explainer when present", () => {
-    render(<ScoreExplainer breakdown={MEASURED} cost={0.009} />);
-    expect(screen.getByText("asset criticality")).toBeInTheDocument();
-    expect(screen.getByText("data sensitivity")).toBeInTheDocument();
-    expect(screen.getByText("exposure")).toBeInTheDocument();
-  });
-
-  it("shows the extended risk badge when context is present", () => {
-    render(<ScoreExplainer breakdown={MEASURED} cost={0.009} />);
-    expect(screen.getByText("extended risk")).toBeInTheDocument();
   });
 
   it("restores defaults on reset", async () => {
